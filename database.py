@@ -1,9 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import os
 
-# PostgreSQL Database URL - Replace with your actual database credentials
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/npc_memory_db"
+load_dotenv()  # 👈 loads variables from .env
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create database engine
 engine = create_engine(DATABASE_URL)

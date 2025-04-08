@@ -11,3 +11,6 @@ class NPCMemory(Base):
     dialogue = Column(Text, nullable=False)
     sentiment = Column(String, nullable=True)  # Stores emotion-based response type
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+npc_reply = Column(String, nullable=True)
+npc_sentiment = Column(String, nullable=True)
