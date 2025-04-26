@@ -9,6 +9,9 @@ model = AutoModelForSequenceClassification.from_pretrained("cardiffnlp/twitter-r
 labels = ['negative', 'neutral', 'positive']
 
 def analyze_sentiment(text: str) -> str:
+    text = text.strip().lower()
+    if not text.strip():
+        return "neutral"
     inputs = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
         logits = model(**inputs).logits

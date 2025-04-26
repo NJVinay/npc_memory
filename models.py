@@ -8,9 +8,16 @@ class NPCMemory(Base):
     id = Column(Integer, primary_key=True, index=True)
     player_id = Column(Integer, nullable=False)
     npc_id = Column(Integer, nullable=False)
-    dialogue = Column(Text, nullable=False)
+    dialogue = Column(String, nullable=False)
     sentiment = Column(String, nullable=True)  # Stores emotion-based response type
     timestamp = Column(DateTime, default=datetime.utcnow)
+    npc_reply = Column(String, nullable=True)
+    npc_sentiment = Column(String, nullable=True)
 
-npc_reply = Column(String, nullable=True)
-npc_sentiment = Column(String, nullable=True)
+class Player(Base):
+    __tablename__ = "players"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=True)
+    role = Column(String, default="player")

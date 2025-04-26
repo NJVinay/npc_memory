@@ -1,14 +1,19 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request, Form, Query
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-from models import Base, NPCMemory
-from schemas import NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate
+from models import Base, NPCMemory, Player
+from schemas import NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate, PlayerCreate, PlayerResponse
 from typing import List
 from sentiment import analyze_sentiment
 from deepseek import generate_npc_response
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
+import os
 
+templates = Jinja2Templates(directory="templates") #Template directory setup
 
 # Initialize FastAPI app with metadata
 app = FastAPI(
@@ -21,7 +26,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Or restrict to your game domain
+    allow_origins=["*"],  # Can be modified to allow only the game specific domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,6 +34,11 @@ app.add_middleware(
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+class ChatRequest(BaseModel):
+    player_id: int
+    npc_id: int
+    dialogue: str
 
 # Dependency to get the database session
 def get_db():
@@ -38,12 +48,12 @@ def get_db():
     finally:
         db.close()
 
-# ✅ Root route
+#  Root route
 @app.get("/")
 def read_root():
     return {"message": "NPC Memory API is running!"}
 
-# ✅ Store a new NPC interaction with duplicate check
+#  Store a new NPC interaction with duplicate check
 @app.post("/store_interaction/", response_model=NPCMemoryResponse, description="Player sends dialogue only. Sentiment is auto-analyzed and NPC reply is generated.", tags=["Create"])
 def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)):
     # Check for duplicate entry
@@ -75,11 +85,16 @@ def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)):
         npc_sentiment=npc_sentiment
     )
     db.add(npc_interaction)
-    db.commit()
-    db.refresh(npc_interaction)
+    try:
+        db.commit()
+        db.refresh(npc_interaction)
+    except Exception as e:
+        db.rollback()
+        print("DB commit error (store_interaction): ", e)
+        raise HTTPException(status_code=500, detail="Database connection issue, consider a retry.")
     return npc_interaction
 
-# ✅ Retrieve past interactions with error handling
+#  Retrieve past interactions with error handling
 @app.get("/get_interactions/{player_id}/{npc_id}", response_model=List[NPCMemoryResponse], tags=["Retrieval"])
 def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db)):
     interactions = db.query(NPCMemory).filter(
@@ -92,7 +107,7 @@ def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db))
 
     return interactions
 
-# ✅ Update an NPC interaction
+#  Update an NPC interaction
 @app.put("/update_interaction/{id}", response_model=NPCMemoryResponse, description="Update player dialogue only. Sentiment and NPC reply are updated automatically.", tags=["Update"])
 def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get_db)):
     npc_interaction = db.query(NPCMemory).filter(NPCMemory.id == id).first()
@@ -118,7 +133,7 @@ def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get
     db.refresh(npc_interaction)
     return npc_interaction
 
-# ✅ Delete an NPC interaction
+#  Delete an NPC interaction
 @app.delete("/delete_interaction/{id}", response_model=NPCMemoryResponse, tags=["Delete"])
 def delete_interaction(id: int, db: Session = Depends(get_db)):
     npc_interaction = db.query(NPCMemory).filter(NPCMemory.id == id).first()
@@ -133,6 +148,146 @@ def delete_interaction(id: int, db: Session = Depends(get_db)):
     db.commit()
     return deleted_data
 
+# Check health status
 @app.get("/health", tags=["System"])
 def health_check():
     return {"status": "OK"}
+
+# Create a new player
+@app.post("/create_player", response_model=PlayerResponse, tags=["Players"])
+def create_player(player: PlayerCreate, db: Session = Depends(get_db)):
+
+    existing = db.query(Player).filter(Player.name == player.name).first()
+    if existing: 
+        raise HTTPException(status_code=400, detail="Player with this name already exists")
+    
+    new_player = Player(**player.dict())
+    db.add(new_player)
+    db.commit()
+    db.refresh(new_player)
+    
+    return new_player
+
+# Get all players
+@app.get("/players", response_model=List[PlayerResponse], tags=["Players"])
+def get_players(db: Session = Depends(get_db)):
+    return db.query(Player).all()
+
+@app.get("/chat", response_class=HTMLResponse)
+def get_chat(request: Request, player_id: int = Query(default=None), db: Session = Depends(get_db)):
+    players = db.query(Player).all()
+    chat_history = []
+
+    if player_id:
+        chat_history = (
+            db.query(NPCMemory)
+            .filter(NPCMemory.player_id == player_id)
+            .order_by(NPCMemory.timestamp.asc())
+            .all()
+        )
+    return templates.TemplateResponse("chat.html", 
+                                      {"request": request,
+                                        "players": players,
+                                        "selected_player_id": player_id,
+                                        "chat_history": chat_history
+                                        })
+
+@app.post("/chat", response_class=HTMLResponse)
+def post_chat(
+    request: Request,
+    player_id: int = Form(...),
+    npc_id: int = Form(1),
+    dialogue: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    players = db.query(Player).all()
+
+    #Fetches last 3 interactions for player
+    history = (
+        db.query(NPCMemory)
+        .filter(NPCMemory.player_id == player_id)
+        .order_by(NPCMemory.timestamp.desc())
+        .limit(1)
+        .all()
+    )
+    context = list(reversed(history)) #reversing from old to new to fetch the last 2
+
+    sentiment = analyze_sentiment(dialogue)
+    player_name = db.query(Player).filter(Player.id == player_id).first().name
+    npc_reply = generate_npc_response(dialogue, sentiment, context, player_name)
+
+    memory = NPCMemory(
+        player_id = player_id,
+        npc_id = 1,
+        dialogue = dialogue,
+        sentiment = sentiment,
+        npc_reply = npc_reply,
+        npc_sentiment = analyze_sentiment(npc_reply)
+    )
+
+    db.add(memory)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print("DB commit error (post_chat): ", e)
+        raise HTTPException(status_code=500, detail="Database connection issue, please retry")
+
+    chat_history = (
+        db.query(NPCMemory)
+        .filter(NPCMemory.player_id == player_id)
+        .order_by(NPCMemory.timestamp.asc())
+        .all()
+    )
+
+    return templates.TemplateResponse("chat.html", {
+        "request": request,
+        "players": players,
+        "npc_reply": npc_reply,
+        "last_dialogue": dialogue,
+        "selected_player_id": player_id,
+        "chat_history": chat_history
+    })
+
+@app.post("/chat_api")
+async def chat_api(
+    request: Request,
+    player_id: int = Form(...),
+    npc_id: int = Form(1),
+    dialogue: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    history = (
+        db.query(NPCMemory)
+        .filter(NPCMemory.player_id == player_id)  
+        .order_by(NPCMemory.timestamp.desc())
+        .limit(2)
+        .all()
+    )
+    context = list(reversed(history))
+
+    sentiment = analyze_sentiment(dialogue)
+    player_name = db.query(Player).filter(Player.id == player_id).first().name
+    npc_reply = generate_npc_response(dialogue, sentiment, context, player_name)
+
+    memory = NPCMemory(
+        player_id=player_id,
+        npc_id=1,
+        dialogue=dialogue,
+        sentiment=sentiment,
+        npc_reply=npc_reply,
+        npc_sentiment=analyze_sentiment(npc_reply)
+    )
+
+    db.add(memory)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print("DB commit error (chat_api): ", e)
+        raise HTTPException(status_code=500, detail="Database issue")
+
+    return JSONResponse(content={
+        "player_dialogue": dialogue,
+        "npc_reply": npc_reply
+    })
