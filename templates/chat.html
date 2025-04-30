@@ -126,13 +126,31 @@
             padding: 20px;
             border-left: 4px solid #333;
             margin-top: 20px;
+
         }
+        
+        .nav-btn {
+            color: #e6b800;
+            text-decoration: none;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .nav-btn:hover {
+            text-decoration: underline;
+        }
+        
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1 style="text-align: center;">Up for a talk?</h1>
+        <h1 style="text-align: center;">Get-Set-Go</h1>
+
+        <div style="margin-bottom: 20px;">
+            <a href="/" class="nav-btn">Back to Start</a> | 
+            <a href="/chat_static" class="nav-btn">Switch to TurboTom (Traditional)</a>
+        </div>
 
         <form id="chat-form">
             <label for="player_id">Select Player:</label>
