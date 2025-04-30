@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Player</title>
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    .form-container {
+      width: 400px;
+      margin: 100px auto;
+      background-color: #1c1c1c;
+      padding: 30px;
+      border-radius: 10px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px;
+      width: 100%;
+      background-color: #e6b800;
+      border: none;
+      font-weight: bold;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>Create New Player</h2>
+    <form action="/create_player_form" method="post">
+      <label for="name">Enter player name:</label>
+      <input type="text" name="name" id="name" required>
+      <button type="submit">Create</button>
+    </form>
+  </div>
+</body>
+</html>

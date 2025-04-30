@@ -9,8 +9,7 @@ from deepseek import generate_npc_response
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 import os
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
@@ -49,9 +48,9 @@ def get_db():
         db.close()
 
 #  Root route
-@app.get("/")
-def read_root():
-    return {"message": "NPC Memory API is running!"}
+@app.get("/", response_class=HTMLResponse)
+def cover_page(request: Request):
+    return templates.TemplateResponse("cover.html", {"request": request})
 
 #  Store a new NPC interaction with duplicate check
 @app.post("/store_interaction/", response_model=NPCMemoryResponse, description="Player sends dialogue only. Sentiment is auto-analyzed and NPC reply is generated.", tags=["Create"])
@@ -286,6 +285,66 @@ async def chat_api(
         db.rollback()
         print("DB commit error (chat_api): ", e)
         raise HTTPException(status_code=500, detail="Database issue")
+
+    return JSONResponse(content={
+        "player_dialogue": dialogue,
+        "npc_reply": npc_reply
+    })
+
+@app.get("/create_player_form", response_class=HTMLResponse)
+def player_form(request: Request):
+    return templates.TemplateResponse("create_player.html", {"request": request})
+
+@app.post("/create_player_form")
+def create_player_from_form(
+    request: Request,
+    name: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    if db.query(Player).filter(Player.name == name).first():
+        raise HTTPException(status_code=400, detail="Player with this name already exists.")
+
+    new_player = Player(name=name)
+    db.add(new_player)
+    db.commit()
+    db.refresh(new_player)
+
+    return RedirectResponse(url="/", status_code=303)
+
+@app.get("/chat_static", response_class=HTMLResponse)
+def get_static_chat(request: Request, db: Session = Depends(get_db)):
+    players = db.query(Player).all()
+    return templates.TemplateResponse("chat_static.html", {
+        "request": request,
+        "players": players
+    })
+
+@app.post("/chat_api_static")
+async def chat_api_static(
+    player_id: int = Form(...),
+    npc_id: int = Form(...),
+    dialogue: str = Form(...)
+):
+     #  Simulated rule-based responses
+    static_responses = {
+        "hello": "Hello racer! Ready to tear up the track today?",
+        "hi": "Hey there! TurboTom here to guide you.",
+        "how do i win": "Stay on the racing line, brake late, and trust your instincts!",
+        "how to drive": "Accelerate gently, brake before corners, and steer smoothly.",
+        "tips": "Practice in time trials. Learn each track's corners!",
+        "what is f1": "F1 is the pinnacle of motorsport – speed, strategy, and precision.",
+        "bye": "Catch you in the pit lane, champ!",
+        "thanks": "Anytime, rookie. Keep your eyes on the apex!"
+    }
+
+    #  Normalize player input
+    user_input = dialogue.lower().strip()
+
+    #  Match static response or fallback
+    npc_reply = static_responses.get(
+        user_input,
+        "Hmm, I don't know about that. Try asking something about racing or Formula One!"
+    )
 
     return JSONResponse(content={
         "player_dialogue": dialogue,
