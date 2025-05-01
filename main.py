@@ -47,10 +47,11 @@ def get_db():
     finally:
         db.close()
 
-#  Root route
+#  Root route   
 @app.get("/", response_class=HTMLResponse)
-def cover_page(request: Request):
-    return templates.TemplateResponse("cover.html", {"request": request})
+def cover_page(request: Request, db: Session = Depends(get_db)):
+    players = db.query(Player).all()
+    return templates.TemplateResponse("cover.html", {"request": request, "players": players})
 
 #  Store a new NPC interaction with duplicate check
 @app.post("/store_interaction/", response_model=NPCMemoryResponse, description="Player sends dialogue only. Sentiment is auto-analyzed and NPC reply is generated.", tags=["Create"])
@@ -213,7 +214,7 @@ def post_chat(
 
     sentiment = analyze_sentiment(dialogue)
     player_name = db.query(Player).filter(Player.id == player_id).first().name
-    npc_reply = generate_npc_response(dialogue, sentiment, context, player_name)
+    npc_reply = generate_npc_response(dialogue, sentiment, player_id, context, player_name)
 
     memory = NPCMemory(
         player_id = player_id,
@@ -267,7 +268,7 @@ async def chat_api(
 
     sentiment = analyze_sentiment(dialogue)
     player_name = db.query(Player).filter(Player.id == player_id).first().name
-    npc_reply = generate_npc_response(dialogue, sentiment, context, player_name)
+    npc_reply = generate_npc_response(dialogue, sentiment, player_id, context, player_name)
 
     memory = NPCMemory(
         player_id=player_id,
