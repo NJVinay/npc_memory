@@ -79,9 +79,27 @@
         <p>Pick which instructor you’d like to talk to first:</p>
 
         <div class="options">
-            <a href="/chat_static" class="btn">⚙️ Talk to TurboTom (Traditional)</a>
-            <a href="/chat" class="btn">🧠 Talk to Dax (AI Memory NPC)</a>
-            <a href="/create_player_form" class="btn">👤 Create New Player (for AI)</a>
+            <form action="/chat" method="get">
+                <label for="player_id">Select Player for Dax:</label>
+                <select name="player_id" required>
+                    {% for player in players %}
+                    <option value="{{ player.id }}">{{ player.name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn" type="submit">🧠 Talk to Dax (AI Memory NPC)</button>
+            </form>
+            
+            <form action="/chat_static" method="get">
+                <label for="player_id">Select Player for TurboTom:</label>
+                <select name="player_id" required>
+                    {% for player in players %}
+                    <option value="{{ player.id }}">{{ player.name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn" type="submit">⚙️ Talk to TurboTom (Traditional)</button>
+            </form>
+            
+            <a href="/create_player_form" class="btn">👤 Create New Player</a>
         </div>
 
         <div class="note">You can return here anytime to switch NPCs.</div>
