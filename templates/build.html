@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Racecar Builder with Dax</title>
+    <style>
+        html, body {
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        *, *::before, *::after {
+            box-sizing: inherit;
+        }
+
+        #left {
+            width: 50%;
+            padding: 20px;
+        }
+
+        #right {
+            width: 50%;
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #left-panel {
+            flex: 7;
+            background-color: #111; 
+            color: white;
+            
+        }
+
+        #middle-display {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background-color: #0f0f0f;
+        }
+
+        #middle-display img:hover {
+            max-height: 420px;
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.4);
+        }
+
+        #right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            border-left: 2px solid #333;
+            overflow-y: auto;
+            max-height: 100vh;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            white-space: normal;
+            background-color: #111;  
+            color: white;
+        }
+
+        button {
+            margin-top: 10px;
+            background-color: #333;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        button.selected {
+            background-color: #444;
+            border: 1px solid #aaa;
+        }
+
+        .button-group button {
+            margin: 5px 5px 5px 0;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            height: calc(100vh - 60px);
+            grid-template-columns: 300px 1fr;
+            gap: 20px
+        }
+
+        .build-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        .parts-panel {
+            width: 40%;
+            padding: 20px;
+            color: white;
+        }
+
+        .chat-panel {
+            width: 108%;
+            background: #111;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        #chat-log {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+        }
+
+        .chat-log::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-log::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        .chat-bubble {
+            max-width: 100%;
+            word-wrap: break-word;
+        }
+
+        .chat-bubble.user {
+            background-color: #333;
+            align-self: flex-end;
+        }
+
+        .chat-bubble.npc {
+            background-color: #144d36;
+            align-self: flex-start;
+        }
+
+        .player-select {
+            margin-bottom: 10px;
+        }
+
+        #player_input {
+            width: 100%;
+            padding: 6px;
+        }
+
+        .part-card {
+            width: 120px;
+            margin: 10px;
+            padding: 10px;
+            text-align: center;
+            background-color: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            transition: 0.2s ease;
+            cursor: pointer;
+        }
+        .part-card:hover {
+            background-color: #2a2a2a;
+            border-color: #888;
+        }
+        .part-card.selected {
+            border-color: #0f0;
+            background-color: #222;
+        }
+        .part-card img {
+            width: 100px;
+            height: auto;
+        }
+        .part-options {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="build-container" style="display: flex; height: 100vh; width: 100vw; overflow: hidden;">
+        <div id="left-panel" style="flex: 0 0 33.33%; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; box-sizing: border-box; min-width: 0;">
+
+            <h2>Select Parts</h2>
+            <div class="part-group">
+                <h3>Chassis:</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="chassis" data-part="Standard">
+                        <img src="/static/images/car_parts/Standard_Chassis.png" alt="Standard" />
+                        <p>Standard</p>
+                    </div>
+                    <div class="part-card" data-category="chassis" data-part="Lightweight">
+                        <img src="/static/images/car_parts/Lightweight_Chassis.png" alt="Lightweight" />
+                        <p>Lightweight</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="part-group">
+                <h3>Engine:</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="engine" data-part="Turbo">
+                        <img src="/static/images/car_parts/Turbo_Engine.png" alt="Turbo" />
+                        <p>Turbo</p>
+                    </div>
+                    <div class="part-card" data-category="engine" data-part="V8">
+                        <img src="/static/images/car_parts/V8_Engine.png" alt="V8" />
+                        <p>V8</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="part-group">
+                <h3>Tires:</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="tires" data-part="Slick">
+                        <img src="/static/images/car_parts/Slick_Tire.png" alt="Slick" />
+                        <p>Slick</p>
+                    </div>
+                    <div class="part-card" data-category="tires" data-part="Wet">
+                        <img src="/static/images/car_parts/Wet_Tire.png" alt="Wet" />
+                        <p>Wet</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="part-group">
+                <h3>Spoiler:</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="spoiler" data-part="None">
+                        <img src="/static/images/car_parts/No_Spoiler.png" alt="None" />
+                        <p>None</p>
+                    </div>
+                    <div class="part-card" data-category="spoiler" data-part="Carbon Fiber">
+                        <img src="/static/images/car_parts/Carbon_Spoiler.png" alt="Carbon Fiber" />
+                        <p>Carbon Fiber</p>
+                    </div>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0; border: 1px solid #333;">
+            <button id="submitBtn" class="final-submit" onclick="submitFinalBuild()">Complete Build</button>
+
+            <div id="car-image" style="margin-top: 20px; display: flex; justify-content: center;"></div>
+        </div>
+
+        <div id="middle-display"
+            style="flex: 0 0 33.33%; display: flex; justify-content: center; align-items: center; background-color: #0f0f0f; box-sizing: border-box; min-width: 0;">
+        </div>
+
+        <div id="right-panel" style="flex: 0 0 33.33%; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; border-left: 2px solid #333; box-sizing: border-box; min-width: 0;">
+
+            <div class="player-bar">
+                <label for="playerSelect">Choose Player:</label>
+                <select id="playerSelect" onchange="updatePlayerId(this)">
+                    {% for player in players %}
+                        <option value="{{ player.id }}" {% if player.id == selected_player_id %}selected{% endif %}>{{ player.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="chat-log" id="chat-log">
+                <div class="chat-bubble npc">
+                    <strong>Dax:</strong> Welcome to the racecar build mission! I’m here to help you choose the best parts and strategy.
+                </div>
+            </div>
+            <div class="chat-input">
+                <form onsubmit="return sendToDax(event)" style="padding: 10px;">
+                    <input type="text" id="player_input" placeholder="Ask Dax for tips..." style="width: 80%;" />
+                    <button onclick="sendToDax(event)">Send to Dax</button>
+                </form> 
+            </div>           
+        </div>
+    </div>
+
+<script>
+    const selectedParts = {
+        chassis: null,
+        engine: null,
+        tires: null,
+        spoiler: null
+    };
+
+    let playerId = parseInt("{{ selected_player_id if selected_player_id is not none else (players[0].id if players else 1) }}");
+    const savedPlayerId = localStorage.getItem("player_id");
+    if (savedPlayerId) {
+        playerId = parseInt(savedPlayerId);
+    }
+    const npcId = 1;
+
+    const playerList = JSON.parse('{{ players | tojson | safe }}');
+
+    let buildCompleted = false;
+    // ✅ Called when any part is selected
+    function selectPart(category, value) {
+        selectedParts[category] = value;
+        const message = `I chose ${value} for ${category}.`;
+        addMessage("user", message);
+        sendMessageToDax(message);
+
+        if (allPartsSelected()) {
+            setTimeout(() => {
+                showBuildComplete();
+                submitCarBuild();  // <- This must be called after build completes
+            }, 1000);
+        }
+    }
+
+    // ✅ Used in manual chat input form
+    async function sendToDax(event) {
+        event.preventDefault();
+        const input = document.getElementById("player_input");
+        const message = input.value.trim();
+        if (!message) return;
+
+        addMessage("player", message);
+        sendMessageToDax(message);
+        input.value = '';
+
+        try {
+            const response = await fetch("/chat_api", {
+                method: "POST",
+                body: new URLSearchParams({
+                    player_id: playerId,
+                    npc_id: 1,
+                    dialogue: message
+                })
+            });
+            const data = await response.json();
+            addMessage("npc", data.npc_reply || "...");
+        } catch (e) {
+            addMessage("npc", "Sorry, I couldn’t respond right now.");
+        }
+    } 
+
+    // ✅ Core message sender to /chat_api
+    async function sendMessageToDax(dialogue) {
+        const formData = new FormData();
+        formData.append("player_id", playerId);
+        formData.append("npc_id", npcId);
+        formData.append("dialogue", dialogue);
+
+        try {
+            const response = await fetch("/chat_api", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            addMessage("npc", data.npc_reply || "...");
+        } catch (error) {
+            addMessage("npc", "Sorry, I couldn’t respond right now.");
+        }
+    }
+
+    // ✅ Add chat message to UI
+    function addMessage(role, text) {
+        const chatLog = document.getElementById("chat-log");
+        const div = document.createElement("div");
+        div.className = `chat-bubble ${role}`;
+        div.innerHTML = `<strong>${role === 'player' ? 'You' : 'Dax'}:</strong> ${text}`;
+        chatLog.appendChild(div);
+        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    // ✅ All parts selected?
+    function allPartsSelected() {
+        return Object.values(selectedParts).every(Boolean);
+    }
+
+    // ✅ Show "Build Complete" banner + disable buttons
+    function showBuildComplete() {
+        const chatLog = document.getElementById("chat-log");
+        const finalMessage = document.createElement("div");
+        finalMessage.className = 'chat-bubble npc';
+        finalMessage.innerHTML = `<strong>Dax:</strong> 🏁 Amazing! You've completed your racecar build. Let's hit the track!`;
+        chatLog.appendChild(finalMessage);
+        const summary = document.createElement("div");
+        summary.className = 'chat-bubble npc';
+        summary.innerHTML = `
+            <div style="margin-top: 10px;">
+                <strong>🏎️ Your Racecar Build:</strong><br>
+                🔧 Chassis: ${selectedParts.chassis}<br>
+                🔥 Engine: ${selectedParts.engine}<br>
+                🛞 Tires: ${selectedParts.tires}<br>
+                🪶 Spoiler: ${selectedParts.spoiler}
+            </div>
+        `;
+
+        chatLog.appendChild(summary);
+        if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+        const summaryText = `Here's my full build: 
+        Chassis: ${selectedParts.chassis}, 
+        Engine: ${selectedParts.engine}, 
+        Tires: ${selectedParts.tires}, 
+        Spoiler: ${selectedParts.spoiler}.`;
+
+        sendMessageToDax(summaryText);
+
+        document.querySelectorAll('.build-button').forEach(btn => btn.disabled = true);
+        
+        const carDisplay = document.createElement("div");
+        carDisplay.id = "car-display";
+        carDisplay.style.display = "flex";
+        carDisplay.style.flexWrap = "wrap";
+        carDisplay.style.justifyContent = "center";
+        carDisplay.style.marginTop = "20px";
+
+        const partImageMap = {
+            "Standard": "/static/images/car_parts/Standard_Chassis.png",
+            "Lightweight": "/static/images/car_parts/Lightweight_Chassis.png",
+            "Turbo": "/static/images/car_parts/Turbo_Engine.png",
+            "V8": "/static/images/car_parts/V8_Engine.png",
+            "Slick": "/static/images/car_parts/Slick_Tire.png",
+            "Wet": "/static/images/car_parts/Wet_Tire.png",
+            "None": "/static/images/car_parts/No_Spoiler.png",
+            "Carbon Fiber": "/static/images/car_parts/Carbon_Spoiler.png"
+        };
+
+        for (const category in selectedParts) {
+            const value = selectedParts[category];
+            if (value) {
+                const img = document.createElement("img");
+                img.src = partImageMap[value];
+                img.alt = value;
+                img.style.width = "120px";
+                img.style.margin = "10px";
+                carDisplay.appendChild(img);
+            }
+        }
+
+        document.getElementById("car-image").appendChild(carDisplay);
+
+        const imageName = `${selectedParts.chassis}_${selectedParts.engine}_${selectedParts.tires}_${selectedParts.spoiler}`.replace(/ /g, "_");
+        const finalCarImagePath = `/static/images/16_cars/${imageName}.png`;
+
+        const finalCarImage = new Image();
+        finalCarImage.src = finalCarImagePath;
+        finalCarImage.loading = "eager"; 
+        finalCarImage.alt = "Final Racecar";
+        finalCarImage.style.maxWidth = "700px";
+        finalCarImage.style.maxHeight = "380px";
+        finalCarImage.style.width = "auto";
+        finalCarImage.style.border = "2px solid #444";
+        finalCarImage.style.borderRadius = "12px";
+        finalCarImage.style.boxShadow = "0 0 30px rgba(0, 255, 0, 0.3)";
+        finalCarImage.style.transition = "transform 0.3s ease";
+        finalCarImage.style.transform = "scale(1.03)";
+
+        const middle = document.getElementById("middle-display");
+        middle.innerHTML = "";
+
+        const caption = document.createElement("p");
+        caption.style.textAlign = "center";
+        caption.style.fontSize = "18px";
+        caption.style.marginBottom = "10px";
+        caption.style.color = "#0f0";
+        middle.appendChild(caption);
+
+        finalCarImage.onload = () => {
+            middle.appendChild(finalCarImage);
+        };
+        finalCarImage.onerror = () => {
+            const error = document.createElement("p");
+            error.textContent = "Failed to load car image.";
+            error.style.color = "red";
+            middle.appendChild(error);
+        };
+        
+        middle.innerHTML = "<p style='color: #aaa;'>Loading car image...</p>";
+        finalCarImage.onload = () => {
+            middle.innerHTML = "";
+            middle.appendChild(caption);
+            middle.appendChild(finalCarImage);
+        };
+
+    }
+
+    function submitFinalBuild() {
+            const formData = new FormData();
+            formData.append("player_id", playerId);
+            formData.append("chassis", selectedParts.chassis);
+            formData.append("engine", selectedParts.engine);
+            formData.append("tires", selectedParts.tires);
+            formData.append("spoiler", selectedParts.spoiler);
+
+            fetch("/save_car_build", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Build save failed");
+                return response.json();
+            }).then(data => {
+                console.log("Build saved:", data);
+            }).catch(err => {
+                console.error("Build save error:", err);
+            });
+    }
+
+    document.querySelectorAll('.part-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const category = card.dataset.category;
+                const part = card.dataset.part;
+
+                // Deselect previous
+                document.querySelectorAll(`.part-card[data-category="${category}"]`).forEach(c => {
+                    c.classList.remove("selected");
+                });
+
+                card.classList.add("selected");
+                selectPart(category, part);
+            });
+        });
+
+    // ✅ Hook up all part buttons
+    document.querySelectorAll('.build-button').forEach(button => {
+        const category = button.getAttribute('data-category');
+        const partName = button.getAttribute('data-part');
+        button.addEventListener('click', () => {
+            // Clear previous selection in the category
+            document.querySelectorAll(`.build-button[data-category="${category}"]`).forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            button.classList.add('selected'); // highlight new one
+
+            selectPart(category, partName);
+        });
+    });
+
+    function updatePlayerId(select) {
+        playerId = parseInt(select.value);
+    }
+
+    window.addEventListener("load", () => {
+        setTimeout(() => {
+            sendMessageToDax("Dax, I'm ready to build my racecar. Guide me!");
+        }, 1000);
+
+        const imageVariants = [
+            "Standard_Turbo_Slick_None",
+            "Standard_Turbo_Slick_Carbon_Fiber",
+            "Standard_Turbo_Wet_None",
+            "Standard_Turbo_Wet_Carbon_Fiber",
+            "Standard_V8_Slick_None",
+            "Standard_V8_Slick_Carbon_Fiber",
+            "Standard_V8_Wet_None",
+            "Standard_V8_Wet_Carbon_Fiber",
+            "Lightweight_Turbo_Slick_None",
+            "Lightweight_Turbo_Slick_Carbon_Fiber",
+            "Lightweight_Turbo_Wet_None",
+            "Lightweight_Turbo_Wet_Carbon_Fiber",
+            "Lightweight_V8_Slick_None",
+            "Lightweight_V8_Slick_Carbon_Fiber",
+            "Lightweight_V8_Wet_None",
+            "Lightweight_V8_Wet_Carbon_Fiber"
+        ];
+
+        imageVariants.forEach(name => {
+            const img = new Image();
+            img.src = `/static/images/16_cars/${name}.png`;
+        });
+    });
+
+    document.getElementById("playerSelect").addEventListener("change", function () {
+        localStorage.setItem("player_id", this.value);
+        location.href = `/build?player_id=${this.value}`;
+
+    });
+    
+
+</script>
+</body>
+
+</html>
