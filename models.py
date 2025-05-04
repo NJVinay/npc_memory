@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from datetime import datetime
 from database import Base
 
@@ -21,3 +21,13 @@ class Player(Base):
     name = Column(String, nullable=False)
     email = Column(String, nullable=True)
     role = Column(String, default="player")
+
+class CarBuild(Base):
+    __tablename__ = "car_builds"
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"))
+    chassis = Column(String)
+    engine = Column(String)
+    tires = Column(String)
+    spoiler = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow) 

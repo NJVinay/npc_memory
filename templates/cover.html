@@ -99,11 +99,22 @@
                 <button class="btn" type="submit">⚙️ Talk to TurboTom (Traditional)</button>
             </form>
             
+            <form action="/build" method="get">
+                <button class="btn" type="submit">🛠️ Build My Racecar</button>
+            </form>
+
             <a href="/create_player_form" class="btn">👤 Create New Player</a>
         </div>
 
         <div class="note">You can return here anytime to switch NPCs.</div>
     </div>
+<script>
+    document.getElementById("enter-chat-btn").addEventListener("click", function () {
+        const selectedPlayerId = document.getElementById("player_id").value;
+        localStorage.setItem("player_id", selectedPlayerId);
+    });
+</script>
+
 </body>
 
 </html>

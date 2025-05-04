@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, Query
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-from models import Base, NPCMemory, Player
+from models import Base, NPCMemory, Player, CarBuild
 from schemas import NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate, PlayerCreate, PlayerResponse
 from typing import List
 from sentiment import analyze_sentiment
@@ -10,7 +10,9 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
-import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.encoders import jsonable_encoder
+import os, json
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
 
@@ -30,6 +32,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -280,6 +284,7 @@ async def chat_api(
     )
 
     db.add(memory)
+        
     try:
         db.commit()
     except Exception as e:
@@ -351,3 +356,45 @@ async def chat_api_static(
         "player_dialogue": dialogue,
         "npc_reply": npc_reply
     })
+
+@app.get("/build", response_class=HTMLResponse)
+def get_build(request: Request, db: Session = Depends(get_db), player_id: int = Query(default=None)):
+    players = db.query(Player).all()
+    players_json = jsonable_encoder(players)
+    if not player_id and players:
+        player_id = players[0].id  # default to first player
+    return templates.TemplateResponse("build.html", {
+        "request": request,
+        "players": players_json,
+        "selected_player_id": player_id
+    })
+
+@app.post("/save_car_build")
+async def save_car_build(
+    player_id: int = Form(...),
+    chassis: str = Form(...),
+    engine: str = Form(...),
+    tires: str = Form(...),
+    spoiler: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    build = CarBuild(
+        player_id=player_id,
+        chassis=chassis,
+        engine=engine,
+        tires=tires,
+        spoiler=spoiler
+    )
+
+    db.add(build)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error while saving build.")
+
+    return {"status": "success", "message": "Build saved successfully!"}
+
+@app.get("/get_builds/{player_id}")
+def get_player_builds(player_id: int, db: Session = Depends(get_db)):
+    return db.query(CarBuild).filter(CarBuild.player_id == player_id).all()

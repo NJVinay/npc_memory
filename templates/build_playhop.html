@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Racecar Builder with Dax</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        iframe {
+            flex: 2;
+            border: none;
+        }
+
+        .chat-section {
+            flex: 1;
+            padding: 20px;
+            background: #121212;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        #chat-log {
+            overflow-y: auto;
+            height: 80%;
+            border: 1px solid #444;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background: #222;
+            color: white;
+            border: none;
+        }
+
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .bubble {
+            margin-bottom: 8px;
+        }
+
+        .player {
+            color: #76c7ff;
+        }
+
+        .npc {
+            color: #ffd479;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 🧩 PlayHop game on the left -->
+    <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
+        <a href="https://playhop.com/app/389266" target="_blank" class="btn"
+            style="padding: 1rem; background: #28a745; color: white; border-radius: 5px; text-decoration: none;">
+            Launch Racecar Builder Game
+        </a>
+    </div>
+
+
+    <!-- 💬 Chat on the right -->
+    <div class="chat-section">
+        <div id="chat-log"></div>
+
+        <textarea id="dialogue" placeholder="Ask Dax for tips..."></textarea>
+        <button onclick="sendDialogue()">Send to Dax</button>
+    </div>
+
+    <script>
+        async function sendDialogue() {
+            const dialogue = document.getElementById('dialogue').value;
+            if (!dialogue.trim()) return;
+
+            const log = document.getElementById('chat-log');
+            log.innerHTML += `<div class="bubble player"><strong>You:</strong> ${dialogue}</div>`;
+
+            document.getElementById('dialogue').value = '';
+
+            const response = await fetch("/chat_api", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ player_id: 1, npc_id: 1, dialogue: dialogue })
+            });
+
+            const data = await response.json();
+            log.innerHTML += `<div class="bubble npc"><strong>Dax:</strong> ${data.npc_reply}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>
