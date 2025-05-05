@@ -3,3 +3,10 @@ uvicorn
 sqlalchemy
 psycopg2
 pydantic
+Jinja2
+aiofiles
+python-dotenv
+transformers
+torch
+scikit-learn
+httpx
