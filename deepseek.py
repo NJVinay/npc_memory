@@ -1,4 +1,6 @@
-import requests
+import requests, os
+from dotenv import load_dotenv
+load_dotenv() 
 
 def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, context: list = [], player_name: str = "") -> str:
     context_prompt = ""
@@ -33,6 +35,7 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
     - Do not accept name changes.
     - Reject off-topic questions (e.g., about AI, programming) politely.
     - Never admit you're an AI. Stay in character.
+    - Complete your response in 2 sentences.
 
     🧠 Mood: {sentiment}. {mood_instruction}
     📜 Context:
@@ -41,18 +44,27 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
     👤 {player_name} says: "{player_dialogue}"
     🎤 Your reply as Dax:
     """
+
+    llm_api_url = os.getenv("LLM_API_URL")
+    if not llm_api_url:
+        raise ValueError("Missing environment variable: LLM_API_URL")
+    llm_user = os.getenv("LLM_API_USERNAME")
+    llm_pass = os.getenv("LLM_API_PASSWORD")
+
+    auth = (llm_user, llm_pass) if llm_user and llm_pass else None
     
     try:
         response = requests.post(
-            "http://localhost:11434/api/generate",
+            llm_api_url,
             json={
                 "model": "mistral:7b",  
                 "prompt": full_prompt,
                 "stream": False,
                 "options": {
-                    "num_predict": 100 #this is to control max token output.
+                    "num_predict": 150 #this is to control max token output.
                 }
             },
+            auth=auth,
             timeout=90
         )
         print("Mistral Status:", response.status_code)
