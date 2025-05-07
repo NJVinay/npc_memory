@@ -153,13 +153,6 @@
         </div>
 
         <form id="chat-form">
-            <label for="player_id">Select Player:</label>
-            <select name="player_id" id="player_id">
-                {% for player in players %}
-                <option value="{{ player.id }}">{{ player.name }}</option>
-                {% endfor %}
-            </select>
-
             <input type="hidden" name="npc_id" id="npc_id" value="1">
 
             <label for="dialogue">Your Message:</label>
@@ -168,6 +161,12 @@
             <button type="submit">Send</button>
         </form>
 
+        {% if intro_message %}
+        <div class="chat-bubble npc">
+            <strong>Dax:</strong> {{ intro_message }}
+        </div>
+        {% endif %}
+        
         {% if chat_history %}
             <div class="chat-log" id="chat-log">
                 {% for entry in chat_history %}
@@ -182,19 +181,29 @@
         {% else %}
             <div class="chat-log" id="chat-log"></div>
         {% endif %}
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/evaluation" class="btn finish-btn"
+                style="background: #4caf50; padding: 12px 20px; color: white; border-radius: 8px; text-decoration: none;">
+                Done? Submit Feedback
+            </a>
+        </div>
     </div>
         
     <script>
+        const playerId = localStorage.getItem("player_id");
+        if (!playerId) {
+            alert("Player ID not found. Please login again.");
+            window.location.href = "/login";
+        }
         const form = document.getElementById('chat-form');
         const chatLog = document.getElementById('chat-log');
         const dialogueInput = document.getElementById('dialogue');
-        const playerSelect = document.getElementById('player_id');
         const npcIdInput = document.getElementById('npc_id');
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const playerId = playerSelect.value;
             const npcId = npcIdInput.value;
             const dialogue = dialogueInput.value.trim();
             if (!dialogue) return;
@@ -253,18 +262,16 @@
 
                         history.reverse().forEach(entry => {
                             chatLog.innerHTML += `
-                    <div class="chat-bubble player"><strong>You:</strong> ${entry.dialogue}</div>
-                    <div class="chat-bubble npc"><strong>NPC:</strong> ${entry.npc_reply}</div>
-                `;
+                                <div class="chat-bubble player"><strong>You:</strong> ${entry.dialogue}</div>
+                                <div class="chat-bubble npc"><strong>NPC:</strong> ${entry.npc_reply}</div>
+                            `;
                         });
-
                         chatLog.scrollTop = chatLog.scrollHeight;
                     }
                 } catch (error) {
                     console.error("Failed to refresh chat history", error);
                 }
             }
-
     </script>
 </body>
 </html>

@@ -189,6 +189,8 @@
 
 <body>
 
+    <a href="/" class="btn">⬅️ Back to Cover Page</a>
+
     <div class="build-container" style="display: flex; height: 100vh; width: 100vw; overflow: hidden;">
         <div id="left-panel" style="flex: 0 0 33.33%; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; box-sizing: border-box; min-width: 0;">
 
@@ -260,16 +262,6 @@
         </div>
 
         <div id="right-panel" style="flex: 0 0 33.33%; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; border-left: 2px solid #333; box-sizing: border-box; min-width: 0;">
-
-            <div class="player-bar">
-                <label for="playerSelect">Choose Player:</label>
-                <select id="playerSelect" onchange="updatePlayerId(this)">
-                    {% for player in players %}
-                        <option value="{{ player.id }}" {% if player.id == selected_player_id %}selected{% endif %}>{{ player.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
             <div class="chat-log" id="chat-log">
                 <div class="chat-bubble npc">
                     <strong>Dax:</strong> Welcome to the racecar build mission! I’m here to help you choose the best parts and strategy.
@@ -285,6 +277,12 @@
     </div>
 
 <script>
+    const playerId = localStorage.getItem("player_id");
+        if (!playerId) {
+            alert("Player ID not found. Please login again.");
+            window.location.href = "/login";
+        }
+
     const selectedParts = {
         chassis: null,
         engine: null,
@@ -292,11 +290,7 @@
         spoiler: null
     };
 
-    let playerId = parseInt("{{ selected_player_id if selected_player_id is not none else (players[0].id if players else 1) }}");
-    const savedPlayerId = localStorage.getItem("player_id");
-    if (savedPlayerId) {
-        playerId = parseInt(savedPlayerId);
-    }
+
     const npcId = 1;
 
     const playerList = JSON.parse('{{ players | tojson | safe }}');
@@ -572,15 +566,6 @@
             img.src = `/static/images/16_cars/${name}.png`;
         });
     });
-
-    document.getElementById("playerSelect").addEventListener("change", function () {
-        localStorage.setItem("player_id", this.value);
-        location.href = `/build?player_id=${this.value}`;
-
-    });
-    
-
 </script>
 </body>
-
 </html>

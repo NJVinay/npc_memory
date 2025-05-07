@@ -65,7 +65,11 @@
 </head>
 
 <body>
-    <div class="container">
+    
+    <a href="/login" class="btn">⬅️ Back to Login</a>
+
+    <div class="container">    
+
         <h1>🏎️ F1 Academy Simulation</h1>
         <p>Welcome, racer! You’re now entering the Formula One Academy — a place where drivers are trained not only on
             the track, but also in decision-making, communication, and strategy.</p>
@@ -79,40 +83,45 @@
         <p>Pick which instructor you’d like to talk to first:</p>
 
         <div class="options">
+            
+
             <form action="/chat" method="get">
-                <label for="player_id">Select Player for Dax:</label>
-                <select name="player_id" required>
-                    {% for player in players %}
-                    <option value="{{ player.id }}">{{ player.name }}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn" type="submit">🧠 Talk to Dax (AI Memory NPC)</button>
+                <button class="btn" type="button" onclick="
+                    if (!pid_dax) { alert('Please log in again'); return false; }                  
+                ">🧠 Talk to Dax (AI Memory NPC)</button>
             </form>
             
             <form action="/chat_static" method="get">
-                <label for="player_id">Select Player for TurboTom:</label>
-                <select name="player_id" required>
-                    {% for player in players %}
-                    <option value="{{ player.id }}">{{ player.name }}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn" type="submit">⚙️ Talk to TurboTom (Traditional)</button>
+                <button class="btn" type="button" onclick="
+                    if (!pid_tom) { alert('Please log in again'); return false; }
+                ">⚙️ Talk to TurboTom (Traditional)</button>
             </form>
             
             <form action="/build" method="get">
                 <button class="btn" type="submit">🛠️ Build My Racecar</button>
             </form>
-
-            <a href="/create_player_form" class="btn">👤 Create New Player</a>
         </div>
 
         <div class="note">You can return here anytime to switch NPCs.</div>
     </div>
 <script>
-    document.getElementById("enter-chat-btn").addEventListener("click", function () {
-        const selectedPlayerId = document.getElementById("player_id").value;
-        localStorage.setItem("player_id", selectedPlayerId);
-    });
+    const playerId = localStorage.getItem("player_id");
+    if (!playerId) {
+        alert("Please login first.");
+        window.location.href = "/login";
+    }
+
+    document.querySelector("form[action='/chat'] button").onclick = () => {
+        window.location.href = `/chat?player_id=${playerId}`;
+    };
+
+    document.querySelector("form[action='/chat_static'] button").onclick = () => {
+        window.location.href = `/chat_static?player_id=${playerId}`;
+    };
+
+    document.querySelector("form[action='/build'] button").onclick = () => {
+        window.location.href = `/build?player_id=${playerId}`;
+    };
 </script>
 
 </body>

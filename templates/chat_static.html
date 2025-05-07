@@ -73,6 +73,21 @@
         .chat-bubble.npc {
             background-color: #44660b;
         }
+
+        .option-btn {
+            background-color: #004aad;
+            color: white;
+            padding: 12px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .option-btn:hover {
+            background-color: #0066cc;
+        }
+
     </style>
 </head>
 
@@ -85,77 +100,72 @@
             <a href="/chat" class="nav-btn">🧠 Switch to Dax (AI)</a>
         </div>
 
-        <form id="chat-form">
-            <label for="player_id">Select Player:</label>
-            <select id="player_id" name="player_id">
-                {% for player in players %}
-                <option value="{{ player.id }}">{{ player.name }}</option>
-                {% endfor %}
-            </select>
+        <div id="chat-log" class="chat-log">
+            <div class="chat-bubble npc"><strong>TurboTom:</strong> Welcome, racer! Your mission is to build a high-performance
+                F1 racecar. We’ll pick a chassis, engine, tires, and spoiler. Ask away or choose an option!</div>
+        </div>
+        
+        <div id="options-container" style="margin-top: 20px;">
+            <button onclick="handleOption('what_parts')" class="option-btn">What parts do I need?</button>
+            <button onclick="handleOption('why_build')" class="option-btn">Why build a racecar?</button>
+            <button onclick="handleOption('how_start')" class="option-btn">How do I get started?</button>
+        </div>
 
-            <input type="hidden" id="npc_id" name="npc_id" value="1">
-
-            <label for="dialogue">Your Message:</label>
-            <textarea id="dialogue" name="dialogue" required></textarea>
-
-            <button type="submit">Send</button>
-        </form>
-
-        <div class="chat-log" id="chat-log"></div>
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/evaluation" class="btn finish-btn"
+            style="background: #4caf50; padding: 12px 20px; color: white; border-radius: 8px; text-decoration: none;">
+            Done? Submit Feedback
+        </a>
     </div>
 
-    <script>
-        const form = document.getElementById('chat-form');
-        const chatLog = document.getElementById('chat-log');
-        const dialogueInput = document.getElementById('dialogue');
-        const playerSelect = document.getElementById('player_id');
-        const npcIdInput = document.getElementById('npc_id');
+    </div>
 
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
+<script>
+    const playerId = localStorage.getItem("player_id");
+    if (!playerId) {
+        alert("Player ID not found. Please login again.");
+        window.location.href = "/login";
+    }
 
-            const dialogue = dialogueInput.value.trim();
-            const playerId = playerSelect.value;
-            const npcId = npcIdInput.value;
+    const chatLog = document.getElementById("chat-log");
+    const optionsContainer = document.getElementById("options-container");
 
-            if (!dialogue) return;
-
-            const playerMsg = document.createElement('div');
-            playerMsg.className = 'chat-bubble player';
-            playerMsg.innerHTML = `<strong>You:</strong> ${dialogue}`;
-            chatLog.appendChild(playerMsg);
-
-            dialogueInput.value = '';
-
-            const thinking = document.createElement('div');
-            thinking.className = 'chat-bubble npc';
-            thinking.innerHTML = '<em>TurboTom is thinking...</em>';
-            chatLog.appendChild(thinking);
-
-            const formData = new FormData();
-            formData.append('player_id', playerId);
-            formData.append('npc_id', npcId);
-            formData.append('dialogue', dialogue);
-
-            try {
-                const response = await fetch('/chat_api_static', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    thinking.innerHTML = `<strong>TurboTom:</strong> ${data.npc_reply}`;
-                } else {
-                    thinking.innerHTML = `<strong>TurboTom:</strong> Error occurred.`;
-                }
-            } catch (error) {
-                thinking.innerHTML = `<strong>TurboTom:</strong> Server unreachable.`;
+    function handleOption(choice) {
+        const responses = {
+            what_parts: {
+                player: "What parts do I need?",
+                npc: "You'll need to choose a chassis, engine, tires, and a spoiler — each impacts your performance."
+            },
+            why_build: {
+                player: "Why build a racecar?",
+                npc: "To compete in the F1 Grand Prix! It’s all about speed, control, and strategy."
+            },
+            how_start: {
+                player: "How do I get started?",
+                npc: "Head to the build section and pick your first part. I’ll guide you step-by-step!"
             }
+        };
 
-            chatLog.scrollTop = chatLog.scrollHeight;
-        });
-    </script>
+        const selected = responses[choice];
+        if (!selected) return;
+
+        const playerMsg = document.createElement("div");
+        playerMsg.className = "chat-bubble player";
+        playerMsg.innerHTML = `<strong>You:</strong> ${selected.player}`;
+        chatLog.appendChild(playerMsg);
+
+        const npcMsg = document.createElement("div");
+        npcMsg.className = "chat-bubble npc";
+        npcMsg.innerHTML = `<strong>TurboTom:</strong> ${selected.npc}`;
+        chatLog.appendChild(npcMsg);
+
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+        // Disable buttons after selection (optional)
+        optionsContainer.querySelectorAll("button").forEach(btn => btn.disabled = true);
+    }
+</script>
+
 </body>
 
 </html>
