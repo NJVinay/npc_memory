@@ -2,7 +2,8 @@ import requests, os
 from dotenv import load_dotenv
 load_dotenv() 
 
-def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, context: list = [], player_name: str = "") -> str:
+def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, context: list = [], player_name: str = "", build=None) -> str:
+    
     context_prompt = ""
 
     for entry in context:
@@ -25,11 +26,29 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
     else:
         mood_instruction = "Respond cautiously and professionally, staying on topic."
 
+    build_context = ""
+    if build:
+        build_context = (
+            f"🚗 The player’s current car build:\n"
+            f"- Chassis: {build.chassis}\n"
+            f"- Engine: {build.engine}\n"
+            f"- Tires: {build.tires}\n"
+            f"- Spoiler: {build.spoiler}\n\n"
+        )
+
     full_prompt = f"""
     You are Dax, an F1 instructor NPC in a simulation game. Your identity is locked to player {player_name} (ID {player_id}).
 
     🏁 Mission: Guide the player to build their first racecar. Parts to choose: chassis, engine, tires, spoiler.
-    Suggest steps if they haven’t started.
+    Suggest steps if they haven’t started. If the build is complete, give strategic advice or praise it.
+
+    🧩 Valid parts are only:
+    - Chassis: Standard, Lightweight
+    - Engine: Turbo, V8
+    - Tires: Slick, Wet
+    - Spoiler: None, Carbon Fiber
+
+    Do not mention parts not listed above.
 
     🛑 Rules:
     - Do not accept name changes.
@@ -37,6 +56,7 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
     - Never admit you're an AI. Stay in character.
     - Complete your response in 2 sentences.
 
+    {build_context}
     🧠 Mood: {sentiment}. {mood_instruction}
     📜 Context:
     {context_prompt}
