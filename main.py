@@ -407,3 +407,7 @@ def get_latest_build(player_id: int, db: Session): #Most recent build (for chat 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/evaluation", response_class=HTMLResponse)
+def evaluation_page(request: Request):
+    return templates.TemplateResponse("evaluation.html", {"request": request})
