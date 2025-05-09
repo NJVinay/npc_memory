@@ -1,34 +1,44 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>F1 Academy Simulation</title>
+    <meta charset="UTF-8">
+    <title>🏁 F1 Academy HeadQuarters</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
+        
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #101820;
-            color: #f2f2f2;
-            padding: 0;
             margin: 0;
+            padding: 0;
+            background-image: url("/static/images/garage_background.jpg");
+            background-size: cover;
+            background-position: center;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        .container {
-            max-width: 700px;
-            margin: 60px auto;
-            background-color: #1c1c1c;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
-        }
-
-        h1,
-        h2 {
+        .welcome-box {
+            background: rgba(0, 0, 0, 0.85);
+            padding: 50px;
+            border-radius: 16px;
+            width: 720px;
+            box-shadow: 0 0 40px rgba(255, 204, 0, 0.4);
             text-align: center;
-            color: #e6b800;
+            animation: fadeIn 1.5s ease-in;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            color: #ffcc00;
+            margin-bottom: 15px;
         }
 
         p {
             font-size: 1.1rem;
+            margin: 12px 0;
             line-height: 1.6;
         }
 
@@ -40,19 +50,27 @@
         }
 
         .btn {
-            display: block;
-            background-color: #e6b800;
-            color: #000;
-            padding: 12px;
+            display: inline-block;
+            margin: 12px 8px;
+            padding: 14px 28px;
+            background-color: #ffcc00;
+            color: black;
             border-radius: 8px;
-            text-align: center;
-            text-decoration: none;
             font-weight: bold;
-            transition: background 0.3s;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
         }
 
         .btn:hover {
-            background-color: #ffd700;
+            background-color: #ffe066;
+        }
+
+        .top-left {
+            position: absolute;
+            top: 30px;
+            left: 30px;
         }
 
         .note {
@@ -61,68 +79,57 @@
             color: #aaa;
             margin-top: 20px;
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 
 <body>
     
-    <a href="/login" class="btn">⬅️ Back to Login</a>
+    <div class="welcome-box">   
+        <div style="text-align: left;">
+            <a href="/login" class="btn">⬅️ Back to Login</a>
+        </div>
+        <h1>🏎️ Welcome to the F1 Academy</h1>
+        <p>Welcome, racer! It’s the start of your legacy. You've now entering the Formula One Academy — a place where drivers are trained not only on the track, but also in decision-making, communication, and strategy.</p>
+        <p>🛠️ Build your dream car. Talk to both. Compare who gets you ready for the Grand Prix.</p>
+        <p>🧠 <b>Dax</b> – An AI race engineer who learns, remembers, and adapts to your strategy.</p>
+        <p>⚙️ <b>TurboTom</b> – A no-nonsense pit chief with fixed wisdom passed down from champions.</p>
 
-    <div class="container">    
+        <p>💡 Choose your path and experience the difference.</p>
 
-        <h1>🏎️ F1 Academy Simulation</h1>
-        <p>Welcome, racer! You’re now entering the Formula One Academy — a place where drivers are trained not only on
-            the track, but also in decision-making, communication, and strategy.</p>
-
-        <p>You will interact with two NPCs:</p>
-        <ul>
-            <li><strong>⚙️ TurboTom (Traditional NPC)</strong> — Responds with fixed knowledge.</li>
-            <li><strong>🧠 Dax (AI NPC)</strong> — Learns from you, remembers what you say, and adapts emotionally.</li>
-        </ul>
-
-        <p>Pick which instructor you’d like to talk to first:</p>
-
-        <div class="options">
-            
-
-            <form action="/chat" method="get">
-                <button class="btn" type="button" onclick="
-                    if (!pid_dax) { alert('Please log in again'); return false; }                  
-                ">🧠 Talk to Dax (AI Memory NPC)</button>
-            </form>
-            
-            <form action="/chat_static" method="get">
-                <button class="btn" type="button" onclick="
-                    if (!pid_tom) { alert('Please log in again'); return false; }
-                ">⚙️ Talk to TurboTom (Traditional)</button>
-            </form>
-            
-            <form action="/build" method="get">
-                <button class="btn" type="submit">🛠️ Build My Racecar</button>
-            </form>
+        <div>
+            <a href="/chat" class="btn" id="daxBtn">🧠 Talk to Dax (AI NPC)</a>
+            <a href="/chat_static" class="btn" id="tomBtn">⚙️ Talk to TurboTom</a>
+            <a href="/build" class="btn" id="buildBtn">🛠️ Build My Racecar</a>
         </div>
 
-        <div class="note">You can return here anytime to switch NPCs.</div>
+        <p class="note">Your choices will define your path. Good luck, driver.</p>
+        
     </div>
-<script>
-    const playerId = localStorage.getItem("player_id");
-    if (!playerId) {
-        alert("Please login first.");
-        window.location.href = "/login";
-    }
 
-    document.querySelector("form[action='/chat'] button").onclick = () => {
-        window.location.href = `/chat?player_id=${playerId}`;
-    };
+    <script>
+        const playerId = localStorage.getItem("player_id");
+        if (!playerId) {
+            alert("Please login first.");
+            window.location.href = "/login";
+        }
 
-    document.querySelector("form[action='/chat_static'] button").onclick = () => {
-        window.location.href = `/chat_static?player_id=${playerId}`;
-    };
+        document.querySelector("daxBtn").onclick = () => {
+            window.location.href = `/chat?player_id=${playerId}`;
+        };
 
-    document.querySelector("form[action='/build'] button").onclick = () => {
-        window.location.href = `/build?player_id=${playerId}`;
-    };
-</script>
+        document.querySelector("tomBtn").onclick = () => {
+            window.location.href = `/chat_static?player_id=${playerId}`;
+        };
+
+        document.querySelector("buildBtn").onclick = () => {
+            window.location.href = `/build?player_id=${playerId}`;
+        };
+    </script>
 
 </body>
 

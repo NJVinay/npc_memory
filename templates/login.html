@@ -63,8 +63,8 @@
         <p>This short experience compares two NPC types: Dax (AI) and TurboTom (Traditional).</p>
 
         <form onsubmit="handleLogin(event)">
-            <input type="text" id="player_uuid" placeholder="Enter your unique link ID" required>
-            <input type="password" id="player_pin" placeholder="Enter 4-digit PIN" required>
+            <input type="text" id="player_uuid" placeholder="Enter your unique link ID" required autocomplete="off">
+            <input type="password" id="player_pin" placeholder="Enter 4-digit PIN" required autocomplete="new-password">
             <input type="checkbox" id="consentCheckbox" required>
             <label for="consentCheckbox"> I consent to participate in this academic study and understand my data will be anonymized.</label><br><br>
             <button class="btn" type="submit" id="continueBtn" disabled>🚀 Continue to Test</button>

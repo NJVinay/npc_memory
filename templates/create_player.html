@@ -76,8 +76,8 @@
   <div class="register-box">
     <h2>🎮 Race Registration</h2>
     <form action="/create_player_form" method="post">
-      <input type="text" name="name" placeholder="Enter your display name" required>
-      <input type="password" name="pin" placeholder="Choose a 4-digit PIN" minlength="4" maxlength="4" pattern="\d{4}" required>
+      <input type="text" name="name" placeholder="Enter your display name" required autocomplete="off">
+      <input type="password" name="pin" placeholder="Choose a 4-digit PIN" minlength="4" maxlength="4" pattern="\d{4}" required autocomplete="new-password">
       <button type="submit">🚀 Start My Engine</button>
     </form>
     <p class="note">You'll receive a unique ID after registration. Keep your PIN safe.</p>
