@@ -24,7 +24,8 @@
             background: rgba(0, 0, 0, 0.85);
             padding: 50px;
             border-radius: 16px;
-            width: 720px;
+            width: 1000px;
+            min-height: 700px;
             box-shadow: 0 0 40px rgba(255, 204, 0, 0.4);
             text-align: center;
             animation: fadeIn 1.5s ease-in;
@@ -42,11 +43,16 @@
             line-height: 1.6;
         }
 
-        .options {
-            margin-top: 30px;
+        #options {           
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            margin-top: 30px;
+            flex-wrap: nowrap;
+            opacity: 0;
+            visibility: hidden;            
         }
 
         .btn {
@@ -75,39 +81,104 @@
 
         .note {
             font-size: 0.95rem;
-            text-align: center;
             color: #aaa;
-            margin-top: 20px;
+            margin-top: 30px;
+            text-align: center;
+            width: 100%;
         }
+
+        .character-row {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 60px;
+            margin-top: 20px;
+            flex-wrap: nowrap;
+        }
+
+        .character-option {
+            opacity: 0;
+            visibility: hidden;
+            width: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s, background 0.3s, border-color 0.3s;
+            cursor: pointer;
+        }
+
+        .character-option img {
+            width: 100px;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .character-option:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 12px rgba(255, 204, 0, 0.4);
+            border-color: #ffcc00;
+            cursor: pointer;
+        }
+
+        .char-name {
+            color: #facc15;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .npc-img {
+            width: 100px;
+            height: auto;
+            margin-bottom: 10px;
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        @media (max-width: 600px) {
+            .options-row {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
     </style>
 </head>
 
 <body>
     
-    <div class="welcome-box">   
+    <div class="welcome-box" id="intro-box" style="display: none; opacity: 0;">   
         <div style="text-align: left;">
             <a href="/login" class="btn">⬅️ Back to Login</a>
         </div>
-        <h1>🏎️ Welcome to the F1 Academy</h1>
-        <p>Welcome, racer! It’s the start of your legacy. You've now entering the Formula One Academy — a place where drivers are trained not only on the track, but also in decision-making, communication, and strategy.</p>
-        <p>🛠️ Build your dream car. Talk to both. Compare who gets you ready for the Grand Prix.</p>
-        <p>🧠 <b>Dax</b> – An AI race engineer who learns, remembers, and adapts to your strategy.</p>
-        <p>⚙️ <b>TurboTom</b> – A no-nonsense pit chief with fixed wisdom passed down from champions.</p>
+        <h1>🏎️ Welcome to the F1 Academy: Legacy Begins</h1>
 
-        <p>💡 Choose your path and experience the difference.</p>
+        <div id="story" style="margin-top: 30px; min-height: 200px; text-align: left;"></div>
 
-        <div>
-            <a href="/chat" class="btn" id="daxBtn">🧠 Talk to Dax (AI NPC)</a>
-            <a href="/chat_static" class="btn" id="tomBtn">⚙️ Talk to TurboTom</a>
-            <a href="/build" class="btn" id="buildBtn">🛠️ Build My Racecar</a>
+        <div id="options" style="opacity: 0; display: none;">
+            <div class="character-row">
+                <div class="character-option" onclick="goTo('/chat')">
+                    <img src="/static/images/instructors/dax.png" alt="Dax" />
+                    <p class="char-name">🧠 Talk to Dax (AI NPC)</p>
+                </div>
+                <div class="character-option" onclick="goTo('/chat_static')">
+                    <img src="/static/images/instructors/tom.png" alt="Tom" />
+                    <p class="char-name">⚙️ Talk to TurboTom</p>
+                </div> 
+            </div>
         </div>
 
-        <p class="note">Your choices will define your path. Good luck, driver.</p>
+        <p class="note" id="note" style="display: none;">Your choices will define your path. Good luck, driver.</p>
         
     </div>
 
@@ -118,17 +189,71 @@
             window.location.href = "/login";
         }
 
-        document.querySelector("daxBtn").onclick = () => {
-            window.location.href = `/chat?player_id=${playerId}`;
-        };
+        fadeIn(document.getElementById("intro-box"));
 
-        document.querySelector("tomBtn").onclick = () => {
-            window.location.href = `/chat_static?player_id=${playerId}`;
-        };
+        const storyLines = [
+            "The year is 2025. The racing world is evolving.",
+            "You've been invited to the F1 Academy — a proving ground for the next champion.",
+            "Here, you won't just drive. You'll decide. Strategize. Build.",
+            "Two mentors await you.",
+            "🧠 Dax: An adaptive AI engineer who learns your style.",
+            "⚙️ TurboTom: A traditionalist with old-school grit.",
+            "Pick wisely. The legacy you leave begins now."
+        ];
 
-        document.querySelector("buildBtn").onclick = () => {
-            window.location.href = `/build?player_id=${playerId}`;
-        };
+        const instructorImg = document.getElementById("instructor-img");
+        const storyDiv = document.getElementById("story");
+        const options = document.getElementById("options");
+        const note = document.getElementById("note");
+
+        async function showStory() {
+            document.getElementById("intro-box").style.display = "block";
+
+            for (let i = 0; i < storyLines.length; i++) {
+                await delay(1000);
+                const p = document.createElement("p");
+                p.innerHTML = storyLines[i];
+                p.style.opacity = 0;
+                storyDiv.appendChild(p);
+                fadeIn(p);
+            }
+
+            await delay(1500);
+            options.style.display = "block";
+            note.style.display = "block";
+            fadeIn(options);
+            document.querySelectorAll('.character-option').forEach(el => fadeIn(el));
+            fadeIn(note);
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function fadeIn(element) {
+            let opacity = 0;
+            element.style.display = "flex";
+            element.style.visibility = "visible";
+            const interval = setInterval(() => {
+                if (opacity >= 1) {
+                    element.style.opacity = 1;
+                    clearInterval(interval);
+                }
+                else {
+                    element.style.opacity = opacity;
+                    opacity += 0.05;
+                }
+            }, 50);
+        }
+
+        function goTo(path) {
+                window.location.href = `${path}?player_id=${playerId}`;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            showStory();
+        }
+    );
     </script>
 
 </body>
