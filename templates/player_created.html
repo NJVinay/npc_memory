@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>✅ Racer Registered</title>
+    <style>
+        body {
+            background-image: url('/static/images/start_line.jpg');
+            background-size: cover;
+            background-position: center;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.75);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            width: 480px;
+        }
+
+        h2 {
+            color: #ffcc00;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .info {
+            color: #0f0;
+            font-size: 17px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #ffcc00;
+            color: black;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background-color: #ffe066;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h2>✅ Racer Registered!</h2>
+        <p class="info">Display Name: <strong>{{ display_name }}</strong></p>
+        <p class="info">Your Unique Link ID: <strong>{{ uuid }}</strong></p>
+        <p class="info">Internal Player ID: <strong>{{ player_id }}</strong></p>
+
+        <a class="btn" href="/login">🚦 Proceed to Login</a>
+    </div>
+</body>
+
+</html>

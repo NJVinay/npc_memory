@@ -3,7 +3,6 @@
 
 <head>
     <title>Static NPC: TurboTom</title>
-    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -72,7 +71,7 @@
             margin: 5px 5px 5px 0;
         }
 
-                button:hover {
+        button:hover {
             background-color: #555;
         }
 
@@ -107,7 +106,16 @@
 
         .chat-bubble {
             max-width: 100%;
-            word-wrap: break-word;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin: 5px 0;
+            font-size: 15px;
+        }
+
+        .chat-bubble.player {
+            background-color: #2f2f2f;
+            align-self: flex-end;
+            color: #fff;
         }
 
         .chat-bubble.user {
@@ -118,6 +126,7 @@
         .chat-bubble.npc {
             background-color: #144d36;
             align-self: flex-start;
+            color: white
         }
 
         .chat-panel {
@@ -184,21 +193,6 @@
             overflow-y: auto;
         }
 
-        .chat-bubble {
-            background: #333;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .chat-bubble.player {
-            background-color: #2b3d6b;
-        }
-
-        .chat-bubble.npc {
-            background-color: #44660b;
-        }
-
         .option-btn {
             background-color: #004aad;
             color: white;
@@ -217,11 +211,15 @@
 </head>
 
 <body style="margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column;">
+    
     <!-- Top 70%: Parts + Preview -->
     <div style="flex: 7; display: flex; overflow: hidden;">
+        
         <!-- Left 35%: Part Selection -->
         <div style="width: 50%; background: #0d0d0d; padding: 16px; overflow-y: auto;">
+            
             <h1>Select Parts</h1>
+            
             <a href="/" class="nav-btn" style="display: inline-block; margin-bottom: 10px;">🏁 Back to Cover</a>
             
             <div class="part-group" id="chassis-group">
@@ -283,7 +281,6 @@
             <button id="submitBtn" class="final-submit" onclick="submitFinalBuild()">Complete Build</button>
         </div>
     
-
         <!-- Right 35%: Car Preview -->
         <div id="middle-display" style="width: 50%; background: #121212; display: flex; justify-content: center; align-items: center;">
             <div id="car-image" style="margin-top: 20px; display: flex; justify-content: center;"></div>
@@ -293,14 +290,9 @@
     <!-- Bottom 30%: TurboTom Chat -->
     <div style="flex: 5; background: #0f1115; padding: 20px; overflow-y: hidden; border-top: 2px solid #222; display: flex; flex-direction: column;">
         <h2 class="text-yellow-400 text-xl font-bold mb-2">TurboTom</h2>
-        <div id="chat-log" class="chat-log" style="flex: 1; overflow-y: auto; margin-bottom: 1rem;"> 
-            <div class="chat-bubble npc"><strong>TurboTom:</strong> 
-                Welcome, racer! Your mission is to build a high-performance F1 racecar.
-                We’ll pick a chassis, engine, tires, and spoiler.
-                Ask away or choose an option!
-            </div>
-        </div>
-
+        
+        <div id="chat-log" class="chat-log" style="flex: 1; overflow-y: auto; margin-bottom: 1rem;"></div>
+        
         <div id="options-container" class="mt-4" style="text-align: center;"></div>
 
         <div class="mt-6 text-center">
@@ -310,263 +302,288 @@
 
     
 <script>
-    const playerId = localStorage.getItem("player_id");
-    if (!playerId) {
-        alert("Player ID not found. Please login again.");
-        window.location.href = "/login";
-    }
+    document.addEventListener("DOMContentLoaded", () => {
+        const playerId = localStorage.getItem("player_id");
+        if (!playerId) {
+            alert("Player ID not found. Please login again.");
+            window.location.href = "/login";
+        }
 
-    const selectedParts = {
-        chassis: null,
-        engine: null,
-        tires: null,
-        spoiler: null
-    };
-
-    function updateCarPreview() {
-            const { chassis, engine, tires, spoiler } = selectedParts;
-            if (!chassis || !engine || !tires || !spoiler) {
-                carImage.innerHTML = `<p class="text-gray-400">Complete all selections to view your car.</p>`;
-                return;
-            }
-
-            const imageName = `${chassis}_${engine}_${tires}_${spoiler}`.replace(/ /g, "_");
-            const path = `/static/images/16_cars/${imageName}.png`;
-
-            const img = new Image();
-            img.src = path;
-            img.alt = "Live Car Preview";
-            img.style.maxHeight = "350px";
-            img.style.borderRadius = "8px";
-            img.style.border = "2px solid #444";
-            img.style.marginTop = "10px";
-
-            const preview = document.getElementById("middle-display");
-            preview.innerHTML = "";  // clear previous
-            preview.appendChild(img);
-    }
-
-
-    const chatLog = document.getElementById("chat-log");
-    const optionsContainer = document.getElementById("options-container");
-    
-    let currentNode = "start";
-    let currentStep = "chassis"; // start here
-
-    const storyFlow = {
-            start: {
-                npc: "Welcome, racer! Ready to join the Grand Prix challenge?",
-                options: {
-                    "Let's go!": "intro1",
-                    "Who are you?": "intro2",
-                    "I'm not sure...": "intro3"
-                }
-            },
-            intro1: {
-                npc: "Awesome! You're going to build a custom F1 car. Let's start with the chassis.",
-                options: {
-                    "Why chassis first?": "whyChassis",
-                    "Okay, show me parts.": "chassisBuild",
-                    "How many parts are there?": "explainParts"
-                }
-            },
-            intro2: {
-                npc: "I'm TurboTom! A retired F1 engineer helping rookies like you. Want to build a car?",
-                options: {
-                    "Yes, let’s go!": "intro1",
-                    "Do I need experience?": "noExperience"
-                }
-            },
-            intro3: {
-                npc: "No worries. It’s simple. Choose parts step-by-step, and I’ll guide you.",
-                options: {
-                    "Alright, let’s begin.": "intro1",
-                    "What’s the goal?": "raceGoal"
-                }
-            },
-            whyChassis: {
-                npc: "The chassis determines weight and control. It's the car’s foundation!",
-                options: {
-                    "Let’s pick one.": "chassisBuild"
-                }
-            },
-            explainParts: {
-                npc: "You'll pick 4 parts: Chassis, Engine, Tires, Spoiler. Each affects your speed and handling.",
-                options: {
-                    "Let’s start.": "chassisBuild"
-                }
-            },
-            raceGoal: {
-                npc: "The goal is to finish the Academy race with the best balance of speed and grip.",
-                options: {
-                    "Let’s do this.": "intro1"
-                }
-            },
-            noExperience: {
-                npc: "None needed. Just follow my lead and trust your instincts.",
-                options: {
-                    "Cool. Let’s start.": "intro1"
-                }
-            },
-            chassisBuild: {
-                npc: "Go ahead and pick a chassis from the left panel!",
-                options: {
-                    "Picked it!": "engineBuild"
-                }
-            },
-            engineBuild: {
-                npc: "Nice. Now choose your engine — more power or efficiency?",
-                options: {
-                    "Got my engine.": "tiresBuild"
-                }
-            },
-            tiresBuild: {
-                npc: "Tires next. Grip vs durability. Choose wisely!",
-                options: {
-                    "Tires locked in.": "spoilerBuild"
-                }
-            },
-            spoilerBuild: {
-                npc: "Last part — spoiler. Adds downforce but also weight.",
-                options: {
-                    "Selected!": "finish"
-                }
-            },
-            finish: {
-                npc: "You’re ready! Hit submit and get ready to race.",
-                options: {}
-            }
+        const selectedParts = {
+            chassis: null,
+            engine: null,
+            tires: null,
+            spoiler: null
         };
 
-    function submitBuildPart(partType, value) {
-        const formData = new FormData();
-        formData.append("player_id", playerId);
-        formData.append("chassis", selectedParts.chassis);
-        formData.append("engine", selectedParts.engine);
-        formData.append("tires", selectedParts.tires);
-        formData.append("spoiler", selectedParts.spoiler);
+        function updateCarPreview() {
+                const { chassis, engine, tires, spoiler } = selectedParts;
+                if (!chassis || !engine || !tires || !spoiler) {
+                    carImage.innerHTML = `<p class="text-gray-400">Complete all selections to view your car.</p>`;
+                    return;
+                }
 
-        fetch("/save_car_build", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert("✅ Car build submitted! Ready to race.");
-        })
-        .catch(error => {
-            alert("❌ Submission failed. Please try again.");
-            console.error(error);
+                const imageName = `${chassis}_${engine}_${tires}_${spoiler}`.replace(/ /g, "_");
+                const path = `/static/images/16_cars/${imageName}.png`;
+
+                const img = new Image();
+                img.src = path;
+                img.alt = "Live Car Preview";
+                img.style.maxHeight = "350px";
+                img.style.borderRadius = "8px";
+                img.style.border = "2px solid #444";
+                img.style.marginTop = "10px";
+
+                const preview = document.getElementById("middle-display");
+                preview.innerHTML = "";  // clear previous
+                preview.appendChild(img);
+        }
+
+
+        const chatLog = document.getElementById("chat-log");
+        const optionsContainer = document.getElementById("options-container");
+        
+        let currentNode = "start";
+        let currentStep = "chassis"; // start here
+
+        const storyFlow = {
+                start: {
+                    npc: "Welcome, racer! Ready to join the Grand Prix challenge?",
+                    options: {
+                        "Let's go!": "intro1",
+                        "Who are you?": "intro2",
+                        "I'm not sure...": "intro3"
+                    }
+                },
+                intro1: {
+                    npc: "Awesome! You're going to build a custom F1 car. Let's start with the chassis.",
+                    options: {
+                        "Why chassis first?": "whyChassis",
+                        "Okay, show me parts.": "chassisBuild",
+                        "How many parts are there?": "explainParts"
+                    }
+                },
+                intro2: {
+                    npc: "I'm TurboTom! A retired F1 engineer helping rookies like you. Want to build a car?",
+                    options: {
+                        "Yes, let's go!": "intro1",
+                        "Do I need experience?": "noExperience"
+                    }
+                },
+                intro3: {
+                    npc: "No worries. It's simple. Choose parts step-by-step, and I'll guide you.",
+                    options: {
+                        "Alright, let's begin.": "intro1",
+                        "What's the goal?": "raceGoal"
+                    }
+                },
+                whyChassis: {
+                    npc: "The chassis determines weight and control. It's the car's foundation!",
+                    options: {
+                        "Let's pick one.": "chassisBuild"
+                    }
+                },
+                explainParts: {
+                    npc: "You'll pick 4 parts: Chassis, Engine, Tires, Spoiler. Each affects your speed and handling.",
+                    options: {
+                        "Let's start.": "chassisBuild"
+                    }
+                },
+                raceGoal: {
+                    npc: "The goal is to finish the Academy race with the best balance of speed and grip.",
+                    options: {
+                        "Let's do this.": "intro1"
+                    }
+                },
+                noExperience: {
+                    npc: "None needed. Just follow my lead and trust your instincts.",
+                    options: {
+                        "Cool. Let's start.": "intro1"
+                    }
+                },
+                chassisBuild: {
+                    npc: "Go ahead and pick a chassis from the left panel!",
+                    options: {
+                        "Picked it!": "engineBuild"
+                    }
+                },
+                engineBuild: {
+                    npc: "Nice. Now choose your engine — more power or efficiency?",
+                    options: {
+                        "Got my engine.": "tiresBuild"
+                    }
+                },
+                tiresBuild: {
+                    npc: "Tires next. Grip vs durability. Choose wisely!",
+                    options: {
+                        "Tires locked in.": "spoilerBuild"
+                    }
+                },
+                spoilerBuild: {
+                    npc: "Last part — spoiler. Adds downforce but also weight.",
+                    options: {
+                        "Selected!": "finish"
+                    }
+                },
+                finish: {
+                    npc: "You're ready! Hit submit and get ready to race. Here are some tips: Stick to racing lines, manage your tires, and brake late into corners!",
+                    options: {}
+                }
+        };
+
+        function submitBuildPart(partType, value) {
+            const formData = new FormData();
+            formData.append("player_id", playerId);
+            formData.append("chassis", selectedParts.chassis);
+            formData.append("engine", selectedParts.engine);
+            formData.append("tires", selectedParts.tires);
+            formData.append("spoiler", selectedParts.spoiler);
+
+            fetch("/save_car_build", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(" Car build submitted! Ready to race.");
+            })
+            .catch(error => {
+                alert(" Submission failed. Please try again.");
+                console.error(error);
+            });
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            updateCarPreview();
+            chatLog.innerHTML = "";
+            optionsContainer.innerHTML = "";
+            currentNode = "start";
+            renderNode(currentNode);
         });
-    }
 
-    window.onload = () => {
-        updateCarPreview();
-        const node = storyFlow[currentNode];
-        chatLog.innerHTML += `<div class="chat-bubble npc"><strong>TurboTom:</strong> ${node.npc}</div>`;
-        optionsContainer.innerHTML = "";
-        Object.keys(node.options).forEach(label => {
-            const btn = document.createElement("button");
-            btn.className = "option-btn";
-            btn.textContent = label;
-            btn.onclick = () => progressConversation(label);
-            optionsContainer.appendChild(btn);
-        });
-    };
+        function renderNode(key) {
+                const node = storyFlow[key];
+                if (!node) return;
+
+                chatLog.innerHTML += `<div class="chat-bubble npc"><strong>TurboTom:</strong> ${node.npc}</div>`;
+                optionsContainer.innerHTML = "";
+                console.log("Rendering node:", key);
+                console.log("NPC says:", node.npc);
 
 
-    function progressConversation(choiceLabel) {
-            if (!storyFlow[currentNode] || !storyFlow[currentNode].options) return;
+                if (Object.keys(node.options).length === 0) {
+                    optionsContainer.innerHTML = "<p style='color: gray;'> No more options. Build complete.</p>";
+                    return;
+                }
+
+                Object.keys(node.options).forEach(label => {
+                    const btn = document.createElement("button");
+                    btn.className = "option-btn";
+                    btn.textContent = label;
+                    btn.disabled = false;
+                    btn.onclick = () => progressConversation(label);
+                    optionsContainer.appendChild(btn);
+                    console.log("Rendered option button:", label);
+
+                });
+
+                chatLog.scrollTop = chatLog.scrollHeight;
+            }
+
+        function progressConversation(choiceLabel) {
+                
             const node = storyFlow[currentNode];
-            const nextKey = node.options[choiceLabel];
+            const nextKey = Object.keys(node.options).find(key => key.trim() === choiceLabel.trim());
             const nextNode = storyFlow[nextKey];
+            console.log("Clicked label:", choiceLabel);
 
+            if (!nextNode) {
+                console.error("No nextNode found for label:", choiceLabel);
+                return;
+            }
+            
             if (!nextNode) return;
 
             chatLog.innerHTML += `<div class="chat-bubble player"><strong>You:</strong> ${choiceLabel}</div>`;
-            chatLog.innerHTML += `<div class="chat-bubble npc"><strong>TurboTom:</strong> ${nextNode.npc}</div>`;
-
-            optionsContainer.innerHTML = "";
-            Object.keys(nextNode.options).forEach(label => {
-                const btn = document.createElement("button");
-                btn.className = "option-btn";
-                btn.textContent = label;
-                btn.onclick = () => progressConversation(label);
-                optionsContainer.appendChild(btn);
-            });
-
             currentNode = nextKey;
-            if (nextKey === "finish") {
+            renderNode(currentNode);
+
+            // Auto-scroll and update preview at final step
+            if (currentNode === "finish") {
                 updateCarPreview();
                 document.getElementById("middle-display").scrollIntoView({ behavior: "smooth" });
             }
 
-            chatLog.scrollTop = chatLog.scrollHeight;
-    }
+            console.log("Clicked label:", choiceLabel);
+            console.log("Current node:", currentNode);
+            console.log("Next key:", node.options[choiceLabel]);
+            console.log("Next node:", nextNode);
 
-    function selectPart(category, part) {
-        const group = document.getElementById(`${category}-group`);
-        const cards = group.querySelectorAll('.part-card');
-        cards.forEach(card => card.classList.remove('selected'));
-
-        const selectedCard = group.querySelector(`.part-card[data-part="${part}"]`);
-        if (selectedCard) {
-            selectedCard.classList.add('selected');
         }
 
-        selectedParts[category] = part;
+        function selectPart(category, part) {
+            const group = document.getElementById(`${category}-group`);
+            const cards = group.querySelectorAll('.part-card');
+            cards.forEach(card => card.classList.remove('selected'));
 
-        updateCarPreview();
-        submitBuildPart(category, part);
+            const selectedCard = group.querySelector(`.part-card[data-part="${part}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+            }
 
-        // Progress logic should come AFTER setting the value
-        if (currentNode === "chassisBuild" && category === "chassis") {
-            progressConversation("Picked it!");
+            selectedParts[category] = part;
+
+            updateCarPreview();
+            submitBuildPart(category, part);
+
+            // Progress logic should come AFTER setting the value
+            if (currentNode === "chassisBuild" && category === "chassis") {
+                progressConversation("Picked it!");
+            }
+            if (currentNode === "engineBuild" && category === "engine") {
+                progressConversation("Got my engine.");
+            }
+            if (currentNode === "tiresBuild" && category === "tires") {
+                progressConversation("Tires locked in.");
+            }
+            if (currentNode === "spoilerBuild" && category === "spoiler") {
+                progressConversation("Selected!");
+            }
         }
-        if (currentNode === "engineBuild" && category === "engine") {
-            progressConversation("Got my engine.");
-        }
-        if (currentNode === "tiresBuild" && category === "tires") {
-            progressConversation("Tires locked in.");
-        }
-        if (currentNode === "spoilerBuild" && category === "spoiler") {
-            progressConversation("Selected!");
-        }
-    }
 
-    document.querySelectorAll('.part-card').forEach(card => {
-            card.onclick = () => {
-                const category = card.dataset.category;
-                const part = card.dataset.part;
-                selectPart(category, part);
-            };
-        }
-    );
+        document.querySelectorAll('.part-card').forEach(card => {
+                card.onclick = () => {
+                    const category = card.dataset.category;
+                    const part = card.dataset.part;
+                    selectPart(category, part);
+                };
+            }
+        );
 
-    const imageVariants = [
-            "Standard_Turbo_Slick_None",
-            "Standard_Turbo_Slick_Carbon_Fiber",
-            "Standard_Turbo_Wet_None",
-            "Standard_Turbo_Wet_Carbon_Fiber",
-            "Standard_V8_Slick_None",
-            "Standard_V8_Slick_Carbon_Fiber",
-            "Standard_V8_Wet_None",
-            "Standard_V8_Wet_Carbon_Fiber",
-            "Lightweight_Turbo_Slick_None",
-            "Lightweight_Turbo_Slick_Carbon_Fiber",
-            "Lightweight_Turbo_Wet_None",
-            "Lightweight_Turbo_Wet_Carbon_Fiber",
-            "Lightweight_V8_Slick_None",
-            "Lightweight_V8_Slick_Carbon_Fiber",
-            "Lightweight_V8_Wet_None",
-            "Lightweight_V8_Wet_Carbon_Fiber"
-        ];
+        const imageVariants = [
+                "Standard_Turbo_Slick_None",
+                "Standard_Turbo_Slick_Carbon_Fiber",
+                "Standard_Turbo_Wet_None",
+                "Standard_Turbo_Wet_Carbon_Fiber",
+                "Standard_V8_Slick_None",
+                "Standard_V8_Slick_Carbon_Fiber",
+                "Standard_V8_Wet_None",
+                "Standard_V8_Wet_Carbon_Fiber",
+                "Lightweight_Turbo_Slick_None",
+                "Lightweight_Turbo_Slick_Carbon_Fiber",
+                "Lightweight_Turbo_Wet_None",
+                "Lightweight_Turbo_Wet_Carbon_Fiber",
+                "Lightweight_V8_Slick_None",
+                "Lightweight_V8_Slick_Carbon_Fiber",
+                "Lightweight_V8_Wet_None",
+                "Lightweight_V8_Wet_Carbon_Fiber"
+            ];
 
-        imageVariants.forEach(name => {
-            const img = new Image();
-            img.src = `/static/images/16_cars/${name}.png`;
-        });
-
+            imageVariants.forEach(name => {
+                const img = new Image();
+                img.src = `/static/images/16_cars/${name}.png`;
+            });
+    });        
 </script>
 </body>
 </html>
