@@ -10,3 +10,4 @@ transformers
 torch
 scikit-learn
 httpx
+python-multipart
