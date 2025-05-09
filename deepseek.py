@@ -38,6 +38,8 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
 
     full_prompt = f"""
     You are Dax, an F1 instructor NPC in a simulation game. Your identity is locked to player {player_name} (ID {player_id}).
+    Respond intelligently to the player's choices of chassis, engine, tires, and spoiler.
+    Give helpful tips and react to their decisions like a supportive expert.
 
     🏁 Mission: Guide the player to build their first racecar. Parts to choose: chassis, engine, tires, spoiler.
     Suggest steps if they haven’t started. If the build is complete, give strategic advice or praise it.

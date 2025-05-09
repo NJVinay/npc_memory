@@ -3,275 +3,303 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>The Great Talk</title>
+    <title>Dax - AI NPC Chat + Build</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 30px;
-            background-color: #f4f4f9;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 40px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            text-align: center;
-            color: #444;
-            margin-bottom: 20px;
-        }
-
-        form {
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            margin: auto;
-            margin-bottom: 30px;
-        }
-
-        label,
-        select,
-        textarea {
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 100px;
-            padding: 10px;
-            resize: vertical;
-        }
-
-        button {
-            background-color: #333;
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #111;
             color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s ease;
         }
 
-        button:hover {
-            background-color: #555;
+        .build-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #left-panel,
+        #middle-display,
+        #right-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        #left-panel {
+            border-right: 2px solid #333;
+        }
+
+        #middle-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0f0f0f;
+        }
+
+        #right-panel {
+            border-left: 2px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .part-card {
+            width: 120px;
+            margin: 10px;
+            padding: 10px;
+            text-align: center;
+            background-color: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .part-card.selected {
+            border-color: #0f0;
+            background-color: #222;
+        }
+
+        .part-card img {
+            width: 100px;
+        }
+
+        .part-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        #player_input {
+            background-color: #1a1a1a;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 5px;
         }
 
         .chat-log {
-            max-height: 400px;
+            flex: 1;
             overflow-y: auto;
-            border: 1px solid #ccc;
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            scroll-behavior: smooth;
+            padding-bottom: 10px;
         }
 
         .chat-bubble {
-            padding: 10px 15px;
-            margin-bottom: 15px;
-            border-radius: 15px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            max-width: 90%;
             line-height: 1.5;
-            max-width: 85%;
-            position: relative;
-            display: flex;
-            align-items: flex-start;
         }
 
-        .player {
-            background-color: #d2f8d2;
+        .chat-bubble.player {
+            background-color: #333;
             align-self: flex-end;
-            margin-left: auto;
-            justify-content: flex-end;
         }
 
-        .npc {
-            background-color: #dbeafe;
+        .chat-bubble.npc {
+            background-color: #144d36;
             align-self: flex-start;
-            margin-right: auto;
         }
 
-        .icon {
-            width: 28px;
-            height: 28px;
-            margin-right: 10px;
+        #player_input {
+            padding: 8px;
+            width: 80%;
         }
 
-        .npc .icon {
-            content: url('https://img.icons8.com/color/48/000000/robot-2.png');
+        button {
+            padding: 8px 16px;
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 8px;
         }
-
-        .player .icon {
-            content: url('https://img.icons8.com/fluency/48/user-male-circle.png');
-        }
-
-        .message-text {
-            flex: 1;
-        }
-
-        .message-block {
-            margin-bottom: 20px;
-        }
-
-        .npc-reply {
-            background: #fff;
-            padding: 20px;
-            border-left: 4px solid #333;
-            margin-top: 20px;
-
-        }
-        
-        .nav-btn {
-            color: #e6b800;
-            text-decoration: none;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-        
-        .nav-btn:hover {
-            text-decoration: underline;
-        }
-        
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <h1 style="text-align: center;">Get-Set-Go</h1>
+    <a href="/" style="margin: 10px; display: inline-block; color: #e6b800">⬅️ Back to Cover Page</a>
+    <div class="build-container">
 
-        <div style="margin-bottom: 20px;">
-            <a href="/" class="nav-btn">Back to Start</a> | 
-            <a href="/chat_static" class="nav-btn">Switch to TurboTom (Traditional)</a>
-        </div>
-
-        <form id="chat-form">
-            <input type="hidden" name="npc_id" id="npc_id" value="1">
-
-            <label for="dialogue">Your Message:</label>
-            <textarea name="dialogue" id="dialogue" required autofocus>{{ last_dialogue or '' }}</textarea>
-
-            <button type="submit">Send</button>
-        </form>
-
-        {% if intro_message %}
-        <div class="chat-bubble npc">
-            <strong>Dax:</strong> {{ intro_message }}
-        </div>
-        {% endif %}
-        
-        {% if chat_history %}
-            <div class="chat-log" id="chat-log">
-                {% for entry in chat_history %}
-                <div class="chat-bubble player">
-                    <strong>You:</strong> {{ entry.dialogue }}
+        <!-- Part Selection -->
+        <div id="left-panel">
+            <h2>Choose Parts</h2>
+            <div class="part-group">
+                <h3>Chassis</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="chassis" data-part="Standard"><img
+                            src="/static/images/car_parts/Standard_Chassis.png">
+                        <p>Standard</p>
+                    </div>
+                    <div class="part-card" data-category="chassis" data-part="Lightweight"><img
+                            src="/static/images/car_parts/Lightweight_Chassis.png">
+                        <p>Lightweight</p>
+                    </div>
                 </div>
-                <div class="chat-bubble npc">
-                    <strong>NPC:</strong> {{ entry.npc_reply }}
-                </div>
-                {% endfor %}
             </div>
-        {% else %}
-            <div class="chat-log" id="chat-log"></div>
-        {% endif %}
+            <div class="part-group">
+                <h3>Engine</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="engine" data-part="Turbo"><img
+                            src="/static/images/car_parts/Turbo_Engine.png">
+                        <p>Turbo</p>
+                    </div>
+                    <div class="part-card" data-category="engine" data-part="V8"><img
+                            src="/static/images/car_parts/V8_Engine.png">
+                        <p>V8</p>
+                    </div>
+                </div>
+            </div>
+            <div class="part-group">
+                <h3>Tires</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="tires" data-part="Slick"><img
+                            src="/static/images/car_parts/Slick_Tire.png">
+                        <p>Slick</p>
+                    </div>
+                    <div class="part-card" data-category="tires" data-part="Wet"><img
+                            src="/static/images/car_parts/Wet_Tire.png">
+                        <p>Wet</p>
+                    </div>
+                </div>
+            </div>
+            <div class="part-group">
+                <h3>Spoiler</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="spoiler" data-part="None"><img
+                            src="/static/images/car_parts/No_Spoiler.png">
+                        <p>None</p>
+                    </div>
+                    <div class="part-card" data-category="spoiler" data-part="Carbon Fiber"><img
+                            src="/static/images/car_parts/Carbon_Spoiler.png">
+                        <p>Carbon Fiber</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <div style="text-align: center; margin-top: 30px;">
-            <a href="/evaluation" class="btn finish-btn"
-                style="background: #4caf50; padding: 12px 20px; color: white; border-radius: 8px; text-decoration: none;">
-                Done? Submit Feedback
-            </a>
+        <!-- Car Preview -->
+        <div id="middle-display">
+            <p style="color: #aaa">Your car will appear here when ready.</p>
+        </div>
+
+        <!-- Chat Interface -->
+        <div id="right-panel">
+            <div class="chat-log" id="chat-log">
+                <script>
+                    window.addEventListener("DOMContentLoaded", () => {
+                        addMessage("npc", "Welcome, racer! I'm Dax — your race engineer. Pick your car parts and ask me anything as you build.");
+                    });
+                </script>
+
+            </div>
+            <form onsubmit="return sendToDax(event)" style="margin-top: auto; display: flex; padding-top: 10px;">
+                <input type="text" id="player_input" placeholder="Ask Dax...">
+                <button type="submit">Send</button>
+            </form>
         </div>
     </div>
-        
+
     <script>
         const playerId = localStorage.getItem("player_id");
         if (!playerId) {
-            alert("Player ID not found. Please login again.");
+            alert("Please login again.");
             window.location.href = "/login";
         }
-        const form = document.getElementById('chat-form');
-        const chatLog = document.getElementById('chat-log');
-        const dialogueInput = document.getElementById('dialogue');
-        const npcIdInput = document.getElementById('npc_id');
 
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
+        const selectedParts = {
+            chassis: null, engine: null, tires: null, spoiler: null
+        };
 
-            const npcId = npcIdInput.value;
-            const dialogue = dialogueInput.value.trim();
-            if (!dialogue) return;
+        function allPartsSelected() {
+            return Object.values(selectedParts).every(Boolean);
+        }
 
-            // Show player message immediately
-            const playerBubble = document.createElement('div');
-            playerBubble.className = 'chat-bubble player';
-            playerBubble.innerHTML = `<strong>You: </strong> ${dialogue}`;
-            chatLog.appendChild(playerBubble);
+        function updateCarPreview() {
+            const { chassis, engine, tires, spoiler } = selectedParts;
+            const display = document.getElementById("middle-display");
+            if (!chassis || !engine || !tires || !spoiler) {
+                display.innerHTML = `<p style='color:#aaa;'>Select all parts to preview your racecar.</p>`;
+                return;
+            }
+            const imageName = `${chassis}_${engine}_${tires}_${spoiler}`.replace(/ /g, "_");
+            const path = `/static/images/16_cars/${imageName}.png`;
+            const img = new Image();
+            img.src = path;
+            img.alt = "Racecar Preview";
+            img.style.maxWidth = "90%";
+            display.innerHTML = "";
+            display.appendChild(img);
+        }
 
-            // Show "NPC is thinking..."
-            const thinkingBubble = document.createElement('div');
-            thinkingBubble.className = 'chat-bubble npc';
-            thinkingBubble.innerHTML = '<em>NPC is thinking...</em>';
-            chatLog.appendChild(thinkingBubble);
-
-            // Scroll to bottom
-            chatLog.scrollTop = chatLog.scrollHeight;
-
-            // Clear input
-            dialogueInput.value = '';
-
-            try {
-                const formData = new FormData();
-                formData.append('player_id', playerId);
-                formData.append('npc_id', npcId);
-                formData.append('dialogue', dialogue);
-
-                const response = await fetch(`/chat_api`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    thinkingBubble.innerHTML = `<strong>NPC:</strong> ${result.npc_reply}`;
-
-                    await refreshChatHistory(playerId);
-                    
-                    chatLog.scrollTop = chatLog.scrollHeight;
-                } else {
-                    thinkingBubble.innerHTML = `<strong>NPC:</strong> Sorry, there was an error.`;
-                }
-            } catch (error) {
-                thinkingBubble.innerHTML = `<strong>NPC:</strong> Failed to reach the server.`;
+        document.querySelectorAll('.part-card').forEach(card => {
+            card.onclick = () => {
+                const category = card.dataset.category;
+                const part = card.dataset.part;
+                selectedParts[category] = part;
+                document.querySelectorAll(`.part-card[data-category='${category}']`).forEach(c => c.classList.remove("selected"));
+                card.classList.add("selected");
+                updateCarPreview();
+                sendToDaxSim(`I picked ${part} for ${category}.`);
             }
         });
 
-        async function refreshChatHistory(playerId) {
-                const npcId = 1;  
-                try {
-                    const response = await fetch(`/get_interactions/${playerId}/${npcId}`);
-                    if (response.ok) {
-                        const history = await response.json();
-                        chatLog.innerHTML = ''; 
+        async function sendToDax(event) {
+            event.preventDefault();
+            const input = document.getElementById("player_input");
+            const message = input.value.trim();
+            if (!message) return;
+            addMessage("player", message);
+            input.value = "";
+            sendToDaxSim(message);
+        }
 
-                        history.reverse().forEach(entry => {
-                            chatLog.innerHTML += `
-                                <div class="chat-bubble player"><strong>You:</strong> ${entry.dialogue}</div>
-                                <div class="chat-bubble npc"><strong>NPC:</strong> ${entry.npc_reply}</div>
-                            `;
-                        });
-                        chatLog.scrollTop = chatLog.scrollHeight;
-                    }
-                } catch (error) {
-                    console.error("Failed to refresh chat history", error);
+        function addMessage(role, text) {
+            const chat = document.getElementById("chat-log");
+            const div = document.createElement("div");
+            div.className = `chat-bubble ${role}`;
+            div.innerHTML = `<strong>${role === 'player' ? 'You' : 'Dax'}:</strong> ${text}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        async function sendToDaxSim(text) {
+            const formData = new FormData();
+            formData.append("player_id", playerId);
+            formData.append("npc_id", 1);
+            formData.append("dialogue", text);
+            addMessage("npc");
+            try {
+                const res = await fetch("/chat_api", { 
+                    method: "POST", body: formData 
+                }) 
+                .then(response => response.json())
+                .then(data => {
+                    addMessage("npc", data.npc_reply);
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    addMessage("npc", "⚠️ Sorry, I couldn’t respond right now.");
+                });
+                const data = await res.json();
+                addMessage("npc", data.npc_reply || "...");
+                } catch {
+                    addMessage("npc");
                 }
             }
+
+        fetch(`/history_api/${playerId}`)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(entry => {
+                    addMessage("player", entry.dialogue);
+                    addMessage("npc", entry.npc_reply);
+                });
+        });
     </script>
 </body>
+
 </html>

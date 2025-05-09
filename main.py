@@ -13,7 +13,8 @@ from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from turbotom import turbotom_response
-import os, json
+import os, json, hashlib
+from uuid import UUID, uuid4
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
 
@@ -54,6 +55,10 @@ def get_db():
 
 #  Root route   
 @app.get("/", response_class=HTMLResponse)
+def login_page_redirect(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/cover", response_class=HTMLResponse)
 def cover_page(request: Request, username: str=None, db: Session = Depends(get_db)):
     players = db.query(Player).all()
     return templates.TemplateResponse("cover.html", {"request": request, "players": players, "selected_player_id": None})
@@ -316,17 +321,23 @@ def player_form(request: Request):
 def create_player_from_form(
     request: Request,
     name: str = Form(...),
+    pin: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    if db.query(Player).filter(Player.name == name).first():
-        raise HTTPException(status_code=400, detail="Player with this name already exists.")
+    new_uuid = str(uuid4())
+    hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
 
-    new_player = Player(name=name)
+    new_player = Player(name=new_uuid, role=hashed_pin)
     db.add(new_player)
     db.commit()
     db.refresh(new_player)
 
-    return RedirectResponse(url=f"/?player_id={new_player.id}", status_code=303)
+    return templates.TemplateResponse("player_created.html", {
+        "request": request,
+        "player_id": new_player.id,
+        "uuid": new_uuid, 
+        "display_name": name
+    })
 
 @app.get("/chat_static", response_class=HTMLResponse)
 def get_static_chat(request: Request, db: Session = Depends(get_db)):
@@ -411,3 +422,18 @@ def login_page(request: Request):
 @app.get("/evaluation", response_class=HTMLResponse)
 def evaluation_page(request: Request):
     return templates.TemplateResponse("evaluation.html", {"request": request})
+
+@app.get("/verify_player")
+def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)):
+    try:
+        UUID(uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
+    player = db.query(Player).filter(Player.name == uuid, Player.role == hashed_pin).first()
+
+    if not player:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    return {"player_id": player.id}
