@@ -16,7 +16,6 @@ class NPCMemory(Base):
 
 class Player(Base):
     __tablename__ = "players"
-    
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     email = Column(String, nullable=True)
@@ -29,5 +28,7 @@ class CarBuild(Base):
     chassis = Column(String)
     engine = Column(String)
     tires = Column(String)
-    spoiler = Column(String)
+    frontWing = Column(String)
+    rearWing = Column(String)
+    car_image = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow) 

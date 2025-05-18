@@ -1,23 +1,34 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
-    <title>🏁 F1 Academy HeadQuarters</title>
+    <title>🏎️ F1 Academy HeadQuarters</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
-        
+
+        html,
         body {
             margin: 0;
             padding: 0;
-            background-image: url("/static/images/garage_background.jpg");
-            background-size: cover;
-            background-position: center;
+            height: 100vh;
+            overflow: hidden;
             font-family: 'Orbitron', sans-serif;
             color: white;
-            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+        }
+
+        #video-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
         }
 
         .welcome-box {
@@ -43,7 +54,7 @@
             line-height: 1.6;
         }
 
-        #options {           
+        #options {
             display: flex;
             flex-direction: row;
             justify-content: center;
@@ -52,39 +63,7 @@
             margin-top: 30px;
             flex-wrap: nowrap;
             opacity: 0;
-            visibility: hidden;            
-        }
-
-        .btn {
-            display: inline-block;
-            margin: 12px 8px;
-            padding: 14px 28px;
-            background-color: #ffcc00;
-            color: black;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background-color 0.3s ease;
-        }
-
-        .btn:hover {
-            background-color: #ffe066;
-        }
-
-        .top-left {
-            position: absolute;
-            top: 30px;
-            left: 30px;
-        }
-
-        .note {
-            font-size: 0.95rem;
-            color: #aaa;
-            margin-top: 30px;
-            text-align: center;
-            width: 100%;
+            visibility: hidden;
         }
 
         .character-row {
@@ -135,30 +114,34 @@
             font-size: 14px;
         }
 
-        .npc-img {
-            width: 100px;
-            height: auto;
-            margin-bottom: 10px;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+        .note {
+            font-size: 0.95rem;
+            color: #aaa;
+            margin-top: 30px;
+            text-align: center;
+            width: 100%;
         }
 
-        @media (max-width: 600px) {
-            .options-row {
-                flex-direction: column;
-                align-items: center;
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
-
     </style>
 </head>
 
 <body>
-    
-    <div class="welcome-box" id="intro-box" style="display: none; opacity: 0;">   
+    <video id="video-bg" autoplay muted loop>
+        <source src="/static/videos/f1_intro.mp4" type="video/mp4">
+    </video>
+
+    <div class="welcome-box" id="intro-box" style="display: none; opacity: 0;">
         <div style="text-align: left;">
             <a href="/login" class="btn">⬅️ Back to Login</a>
         </div>
@@ -168,19 +151,18 @@
 
         <div id="options" style="opacity: 0; display: none;">
             <div class="character-row">
-                <div class="character-option" onclick="goTo('/chat')">
+                <div class="character-option" onclick="fadeAndGo('/chat')">
                     <img src="/static/images/instructors/dax.png" alt="Dax" />
                     <p class="char-name">🧠 Talk to Dax (AI NPC)</p>
                 </div>
-                <div class="character-option" onclick="goTo('/chat_static')">
+                <div class="character-option" onclick="fadeAndGo('/chat_static')">
                     <img src="/static/images/instructors/tom.png" alt="Tom" />
                     <p class="char-name">⚙️ Talk to TurboTom</p>
-                </div> 
+                </div>
             </div>
         </div>
 
         <p class="note" id="note" style="display: none;">Your choices will define your path. Good luck, driver.</p>
-        
     </div>
 
     <script>
@@ -202,7 +184,6 @@
             "Pick wisely. The legacy you leave begins now."
         ];
 
-        const instructorImg = document.getElementById("instructor-img");
         const storyDiv = document.getElementById("story");
         const options = document.getElementById("options");
         const note = document.getElementById("note");
@@ -239,24 +220,28 @@
                 if (opacity >= 1) {
                     element.style.opacity = 1;
                     clearInterval(interval);
-                }
-                else {
+                } else {
                     element.style.opacity = opacity;
                     opacity += 0.05;
                 }
             }, 50);
         }
 
-        function goTo(path) {
-                window.location.href = `${path}?player_id=${playerId}`;
+        function fadeAndGo(path) {
+            const box = document.getElementById("intro-box");
+            gsap.to(box, {
+                opacity: 0,
+                y: 50,
+                duration: 1,
+                ease: "power2.out",
+                onComplete: () => {
+                    window.location.href = `${path}?player_id=${playerId}`;
+                }
+            });
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            showStory();
-        }
-    );
+        document.addEventListener("DOMContentLoaded", showStory);
     </script>
-
 </body>
 
 </html>
