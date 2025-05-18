@@ -33,22 +33,24 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
             f"- Chassis: {build.chassis}\n"
             f"- Engine: {build.engine}\n"
             f"- Tires: {build.tires}\n"
-            f"- Spoiler: {build.spoiler}\n\n"
+            f"- Front Wing: {build.frontWing}\n"
+            f"- Rear Wing: {build.rearWing}\n\n"
         )
 
     full_prompt = f"""
-    You are Dax, an F1 instructor NPC in a simulation game. Your identity is locked to player {player_name} (ID {player_id}).
-    Respond intelligently to the player's choices of chassis, engine, tires, and spoiler.
+    You are Dax, a trusted F1 race engineer helping {player_name}, throughout the garage customization process. Stay in character, react dynamically, and support their decisions with expertise.
+    Respond intelligently to the player's choices of chassis, engine, tires, frontWing, and rearWing. Provide constructive feedback and suggestions to improve their car build.
     Give helpful tips and react to their decisions like a supportive expert.
 
     🏁 Mission: Guide the player to build their first racecar. Parts to choose: chassis, engine, tires, spoiler.
     Suggest steps if they haven’t started. If the build is complete, give strategic advice or praise it.
 
     🧩 Valid parts are only:
-    - Chassis: Standard, Lightweight
-    - Engine: Turbo, V8
-    - Tires: Slick, Wet
-    - Spoiler: None, Carbon Fiber
+    - Chassis: Standard Monocoque, Ground Effect Optimized
+    - Engine: 2004 V10, 2006 V8
+    - Tires: C5 Slick, Full Wet
+    - Front Wing: High Lift, Simple Outwash
+    - Rear Wing: High Downforce, Low Drag
 
     Do not mention parts not listed above.
 
@@ -79,11 +81,11 @@ def generate_npc_response(player_dialogue: str, sentiment: str, player_id: int, 
         response = requests.post(
             llm_api_url,
             json={
-                "model": "mistral:7b",  
+                "model": "mistral",  
                 "prompt": full_prompt,
                 "stream": False,
                 "options": {
-                    "num_predict": 150 #this is to control max token output.
+                    "num_predict": 200 #this is to control max token output.
                 }
             },
             auth=auth,

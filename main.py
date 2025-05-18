@@ -355,8 +355,6 @@ async def chat_api_static(
     dialogue: str = Form(...),
     db : Session = Depends(get_db)
 ):
-    
-    
     response = turbotom_response(dialogue, player_id, db)
     return JSONResponse(content={
         "player_dialogue": dialogue,
@@ -382,7 +380,8 @@ async def save_car_build(
     chassis: str = Form(...),
     engine: str = Form(...),
     tires: str = Form(...),
-    spoiler: str = Form(...),
+    frontWing: str = Form(...),
+    rearWing: str = Form(...),
     db: Session = Depends(get_db)
 ):
     build = CarBuild(
@@ -390,7 +389,8 @@ async def save_car_build(
         chassis=chassis,
         engine=engine,
         tires=tires,
-        spoiler=spoiler
+        frontWing=frontWing,
+        rearWing=rearWing
     )
 
     db.add(build)
@@ -437,3 +437,7 @@ def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     return {"player_id": player.id}
+
+@app.get("/chat_cover", response_class=HTMLResponse)
+async def get_cover_page(request: Request):
+    return templates.TemplateResponse("chat_cover.html", {"request": request})

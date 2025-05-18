@@ -2,250 +2,315 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Dax - AI NPC Chat + Build</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 Configurator + Dax Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #111;
-            color: white;
-        }
-
-        .build-container {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        #left-panel,
-        #middle-display,
-        #right-panel {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
-
-        #left-panel {
-            border-right: 2px solid #333;
-        }
-
-        #middle-display {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #0f0f0f;
-        }
-
-        #right-panel {
-            border-left: 2px solid #333;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .part-card {
-            width: 120px;
-            margin: 10px;
-            padding: 10px;
-            text-align: center;
-            background-color: #1a1a1a;
-            border: 2px solid #444;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .part-card.selected {
-            border-color: #0f0;
-            background-color: #222;
-        }
-
-        .part-card img {
-            width: 100px;
-        }
-
-        .part-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        #player_input {
-            background-color: #1a1a1a;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 5px;
-        }
-
-        .chat-log {
-            flex: 1;
-            overflow-y: auto;
-            padding-bottom: 10px;
-        }
-
-        .chat-bubble {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 10px;
-            max-width: 90%;
-            line-height: 1.5;
-        }
-
-        .chat-bubble.player {
-            background-color: #333;
-            align-self: flex-end;
-        }
-
-        .chat-bubble.npc {
-            background-color: #144d36;
-            align-self: flex-start;
-        }
-
-        #player_input {
-            padding: 8px;
-            width: 80%;
-        }
-
-        button {
-            padding: 8px 16px;
-            background-color: #333;
-            color: white;
-            border: none;
-            cursor: pointer;
-            margin-left: 8px;
+        body {
+            background-image: url('/static/images/emptygaragewithtools.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
     </style>
 </head>
 
-<body>
-    <a href="/" style="margin: 10px; display: inline-block; color: #e6b800">⬅️ Back to Cover Page</a>
-    <div class="build-container">
+<body class="text-white h-screen overflow-hidden font-sans">
+    <div class="flex h-screen">
+        <!-- Part Selection Panel -->
+        <div class="w-[360px] bg-black bg-opacity-70 p-6 overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-6 text-yellow-400">Configuration</h2>
+            <div class="space-y-4" id="sidebar-buttons">
+                <div>
+                    <button onclick="toggleSection('chassis')"
+                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Chassis</button>
+                    <div id="group-chassis" class="hidden mt-2"></div>
+                </div>
+                <div>
+                    <button onclick="toggleSection('engine')"
+                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Engine</button>
+                    <div id="group-engine" class="hidden mt-2"></div>
+                </div>
+                <div>
+                    <button onclick="toggleSection('tires')"
+                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Tires</button>
+                    <div id="group-tires" class="hidden mt-2"></div>
+                </div>
+                <div>
+                    <button onclick="toggleSection('frontWing')"
+                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Front Wing</button>
+                    <div id="group-frontWing" class="hidden mt-2"></div>
+                </div>
+                <div>
+                    <button onclick="toggleSection('rearWing')"
+                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Rear Wing</button>
+                    <div id="group-rearWing" class="hidden mt-2"></div>
+                </div>
+            
+                <div class="mt-6 text-sm text-gray-300">
+                    <p><span class="font-bold">Your Build:</span></p>
+                    <p>Chassis: <span id="summary-chassis">None</span></p>
+                    <p>Engine: <span id="summary-engine">None</span></p>
+                    <p>Tires: <span id="summary-tires">None</span></p>
+                    <p>Front Wing: <span id="summary-frontWing">None</span></p>
+                    <p>Rear Wing: <span id="summary-rearWing">None</span></p>
+                </div>
+            </div>
+                    
+        </div>        
 
-        <!-- Part Selection -->
-        <div id="left-panel">
-            <h2>Choose Parts</h2>
-            <div class="part-group">
-                <h3>Chassis</h3>
-                <div class="part-options">
-                    <div class="part-card" data-category="chassis" data-part="Standard"><img
-                            src="/static/images/car_parts/Standard_Chassis.png">
-                        <p>Standard</p>
-                    </div>
-                    <div class="part-card" data-category="chassis" data-part="Lightweight"><img
-                            src="/static/images/car_parts/Lightweight_Chassis.png">
-                        <p>Lightweight</p>
-                    </div>
-                </div>
-            </div>
-            <div class="part-group">
-                <h3>Engine</h3>
-                <div class="part-options">
-                    <div class="part-card" data-category="engine" data-part="Turbo"><img
-                            src="/static/images/car_parts/Turbo_Engine.png">
-                        <p>Turbo</p>
-                    </div>
-                    <div class="part-card" data-category="engine" data-part="V8"><img
-                            src="/static/images/car_parts/V8_Engine.png">
-                        <p>V8</p>
-                    </div>
-                </div>
-            </div>
-            <div class="part-group">
-                <h3>Tires</h3>
-                <div class="part-options">
-                    <div class="part-card" data-category="tires" data-part="Slick"><img
-                            src="/static/images/car_parts/Slick_Tire.png">
-                        <p>Slick</p>
-                    </div>
-                    <div class="part-card" data-category="tires" data-part="Wet"><img
-                            src="/static/images/car_parts/Wet_Tire.png">
-                        <p>Wet</p>
-                    </div>
-                </div>
-            </div>
-            <div class="part-group">
-                <h3>Spoiler</h3>
-                <div class="part-options">
-                    <div class="part-card" data-category="spoiler" data-part="None"><img
-                            src="/static/images/car_parts/No_Spoiler.png">
-                        <p>None</p>
-                    </div>
-                    <div class="part-card" data-category="spoiler" data-part="Carbon Fiber"><img
-                            src="/static/images/car_parts/Carbon_Spoiler.png">
-                        <p>Carbon Fiber</p>
-                    </div>
-                </div>
-            </div>
+        <!-- Car Preview Area -->
+        <div class="w-2/3 flex justify-center items-center relative">
+            <img id="car-preview" class="max-h-[90%] object-contain" src="/static/images/32_cars/Car01_E1_T1_C1_F1_R1.png" />
         </div>
-
-        <!-- Car Preview -->
-        <div id="middle-display">
-            <p style="color: #aaa">Your car will appear here when ready.</p>
+        <div id="car-info" class="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded text-sm space-y-1">
+            <p id="part-labels" class="font-bold text-yellow-300"></p>
+            <div id="part-images" class="flex gap-4 mt-2"></div>
         </div>
+        
+    </div>
 
-        <!-- Chat Interface -->
-        <div id="right-panel">
-            <div class="chat-log" id="chat-log">
-                <script>
-                    window.addEventListener("DOMContentLoaded", () => {
-                        addMessage("npc", "Welcome, racer! I'm Dax — your race engineer. Pick your car parts and ask me anything as you build.");
-                    });
-                </script>
-
-            </div>
-            <form onsubmit="return sendToDax(event)" style="margin-top: auto; display: flex; padding-top: 10px;">
-                <input type="text" id="player_input" placeholder="Ask Dax...">
-                <button type="submit">Send</button>
-            </form>
+    <!-- Dax Chat Assistant -->
+    <div
+        class="fixed bottom-6 right-6 w-96 h-[500px] bg-black bg-opacity-70 backdrop-blur-md rounded-xl shadow-lg flex flex-col p-4 z-50">
+        <div class="flex items-center mb-2">
+            <img src="/static/images/instructors/dax.png" alt="Dax" class="w-10 h-10 rounded-full mr-2" />
+            <span class="text-green-300 font-semibold">Dax</span>
         </div>
+        <div id="chat-log" class="flex-1 overflow-y-auto space-y-2">
+            <script>
+                window.addEventListener("DOMContentLoaded", () => {
+                    addMessage("npc", "Welcome racer! I'm Dax — your engineer. Ask anything or start selecting parts.");
+                });
+            </script>
+        </div>
+        <form onsubmit="return sendToDax(event)" class="mt-3 flex">
+            <input id="player_input" type="text" placeholder="Ask Dax..."
+                class="flex-1 p-2 rounded-l bg-gray-800 text-white border border-gray-600" />
+            <button class="px-4 bg-yellow-400 text-black font-bold rounded-r">Send</button>
+        </form>
     </div>
 
     <script>
+
+        const readableLabels = {
+                "2004_v10_Engine": "2004 V10",
+                "2006_v8_Engine": "2006 V8",
+                "C5_Slick_Tire": "C5 Slick",
+                "Full_Wet_Tire": "Full Wet",
+                "Standard_Monocoque_Chassis": "Standard Monocoque",
+                "GroundEffectOptimized_Monocoque_Chassis": "Ground Effect Optimized",
+                "High_Lift_FrontWing": "High Lift",
+                "Simple_Outwash_FrontWing": "Simple Outwash",
+                "High_Downforce_RearWing": "High Downforce",
+                "Low_Drag_RearWing": "Low Drag"
+        };
+
+        const PARTS = {
+            E1: { label: "2004 V10 Engine", file: "2004_v10_Engine.png" },
+            E2: { label: "2006 V8 Engine", file: "2006_v8_Engine.png" },
+            T1: { label: "C5 Slick Tire", file: "C5_Slick_Tire.png" },
+            T2: { label: "Full Wet Tire", file: "Full_Wet_Tire.png" },
+            C1: { label: "Standard Monocoque Chassis", file: "Standard_Monocoque_Chassis.png" },
+            C2: { label: "Ground Effect Optimized Chassis", file: "GroundEffectOptimized_Monocoque_Chassis.png" },
+            F1: { label: "High Lift Front Wing", file: "High_Lift_FrontWing.png" },
+            F2: { label: "Simple Outwash Front Wing", file: "Simple_Outwash_FrontWing.png" },
+            R1: { label: "High Downforce Rear Wing", file: "High_Downforce_RearWing.png" },
+            R2: { label: "Low Drag Rear Wing", file: "Low_Drag_RearWing.png" }
+        };
+
+        // List all car image filenames you have
+        const CAR_IMAGES = [
+            "Car01_E1_T1_C1_F1_R1.png",
+            "Car02_E1_T1_C1_F1_R2.png",
+            "Car03_E1_T1_C1_F2_R1.png",
+            "Car04_E1_T1_C1_F2_R2.png",
+            "Car05_E1_T1_C2_F1_R1.png",
+            "Car06_E1_T1_C2_F1_R2.png",
+            "Car07_E1_T1_C2_F2_R1.png",
+            "Car08_E1_T1_C2_F2_R2.png",
+            "Car09_E1_T2_C1_F1_R1.png",
+            "Car10_E1_T2_C1_F1_R2.png",
+            "Car11_E1_T2_C1_F2_R1.png",
+            "Car12_E1_T2_C1_F2_R2.png",
+            "Car13_E1_T2_C2_F1_R1.png",
+            "Car14_E1_T2_C2_F1_R2.png",
+            "Car15_E1_T2_C2_F2_R1.png",
+            "Car16_E1_T2_C2_F2_R2.png",
+            "Car17_E2_T1_C1_F1_R1.png",
+            "Car18_E2_T1_C1_F1_R2.png",
+            "Car19_E2_T1_C1_F2_R1.png",
+            "Car20_E2_T1_C1_F2_R2.png",
+            "Car21_E2_T1_C2_F1_R1.png",
+            "Car22_E2_T1_C2_F1_R2.png",
+            "Car23_E2_T1_C2_F2_R1.png",
+            "Car24_E2_T1_C2_F2_R2.png",
+            "Car25_E2_T2_C1_F1_R1.png",
+            "Car26_E2_T2_C1_F1_R2.png",
+            "Car27_E2_T2_C1_F2_R1.png",
+            "Car28_E2_T2_C1_F2_R2.png",
+            "Car29_E2_T2_C2_F1_R1.png",
+            "Car30_E2_T2_C2_F1_R2.png",
+            "Car31_E2_T2_C2_F2_R1.png",
+            "Car32_E2_T2_C2_F2_R2.png"
+        ];
+
+        function parseCarFilename(filename) {
+            const parts = filename.split("_");
+            const carId = parts[0];
+            return {
+                id: carId,
+                engine: PARTS[parts[1]],
+                tires: PARTS[parts[2]],
+                chassis: PARTS[parts[3]],
+                frontWing: PARTS[parts[4]],
+                rearWing: PARTS[parts[5]]
+            };
+        }
+
+        function showPartPreview(filename) {
+                const parsed = parseCarFilename(filename);
+                const labelEl = document.getElementById("part-labels");
+                const imgRow = document.getElementById("part-images");
+
+                labelEl.textContent = `Car ${parsed.id} — ${parsed.engine.label}, ${parsed.tires.label}, ${parsed.chassis.label}, ${parsed.frontWing.label}, ${parsed.rearWing.label}`;
+
+                imgRow.innerHTML = ""; // Clear previous
+                [parsed.engine, parsed.tires, parsed.chassis, parsed.frontWing].forEach(part => {
+                    const img = document.createElement("img");
+                    img.src = `/static/images/car_parts/${part.file}`;
+                    img.alt = part.label;
+                    img.className = "w-16 h-16 object-contain rounded bg-gray-900 border border-gray-700";
+                    img.title = part.label;
+                    imgRow.appendChild(img);
+                });
+        }
+
+
+        function toggleSection(category) {
+            const el = document.getElementById(`group-${category}`);
+            el.classList.toggle("hidden");
+        }
+
         const playerId = localStorage.getItem("player_id");
         if (!playerId) {
-            alert("Please login again.");
+            alert("Please login first.");
             window.location.href = "/login";
         }
 
-        const selectedParts = {
-            chassis: null, engine: null, tires: null, spoiler: null
+        const selectedParts = { chassis: null, engine: null, tires: null, frontWing: null, rearWing: null };
+        const partData = {
+            chassis: ["Standard_Monocoque_Chassis", "GroundEffectOptimized_Monocoque_Chassis"],
+            engine: ["2004_v10_Engine", "2006_v8_Engine"],
+            tires: ["C5_Slick_Tire", "Full_Wet_Tire"],
+            frontWing: ["High_Lift_FrontWing", "Simple_Outwash_FrontWing"],
+            rearWing: ["High_Downforce_RearWing", "Low_Drag_RearWing"]
         };
 
-        function allPartsSelected() {
-            return Object.values(selectedParts).every(Boolean);
+        function createPartCards() {
+            Object.keys(partData).forEach(category => {
+                const groupContainer = document.getElementById(`group-${category}`);
+                groupContainer.innerHTML = "";
+
+                const row = document.createElement("div");
+                row.className = "flex gap-4 flex-wrap";
+
+                partData[category].forEach(part => {
+                    const card = document.createElement("div");
+                    card.className = "bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 cursor-pointer rounded p-3 text-center transition w-28";
+
+                    card.innerHTML = `
+                <img src="/static/images/car_parts/${part}.png" 
+                    class="w-20 h-20 object-contain mx-auto mb-2" />
+                <p>${readableLabels[part] || part}</p>`;
+
+                    card.onclick = () => {
+                        selectedParts[category] = part;
+
+                        // Remove highlights
+                        row.querySelectorAll("div").forEach(c => c.classList.remove("border-yellow-400"));
+                        card.classList.add("border-yellow-400");
+
+                        updatePreview();
+                        updateSummary();
+                        sendToDaxSim(`I selected the ${part} for the ${category}.`);
+                    };
+
+                    row.appendChild(card);
+                });
+
+                groupContainer.appendChild(row);
+            });
+        }
+            
+        function updateSummary() {
+            document.getElementById("summary-chassis").textContent = selectedParts.chassis || "None";
+            document.getElementById("summary-engine").textContent = selectedParts.engine || "None";
+            document.getElementById("summary-tires").textContent = selectedParts.tires || "None";
+            document.getElementById("summary-frontWing").textContent = selectedParts.frontWing || "None";
+            document.getElementById("summary-rearWing").textContent = selectedParts.rearWing || "None";
         }
 
-        function updateCarPreview() {
-            const { chassis, engine, tires, spoiler } = selectedParts;
-            const display = document.getElementById("middle-display");
-            if (!chassis || !engine || !tires || !spoiler) {
-                display.innerHTML = `<p style='color:#aaa;'>Select all parts to preview your racecar.</p>`;
+        function getBuildCode() {
+            const partCodes = {
+                engine: { "2004_v10_Engine": "E1", "2006_v8_Engine": "E2" },
+                tires: { "C5_Slick_Tire": "T1", "Full_Wet_Tire": "T2" },
+                chassis: { "Standard_Monocoque_Chassis": "C1", "GroundEffectOptimized_Monocoque_Chassis": "C2" },
+                frontWing: { "High_Lift_FrontWing": "F1", "Simple_Outwash_FrontWing": "F2" },
+                rearWing: { "High_Downforce_RearWing": "R1", "Low_Drag_RearWing": "R2" }
+            };
+
+            if (!selectedParts.engine || !selectedParts.tires || !selectedParts.chassis || !selectedParts.frontWing || !selectedParts.rearWing)
+                return null;
+
+            return `E${partCodes.engine[selectedParts.engine].slice(1)}_T${partCodes.tires[selectedParts.tires].slice(1)}_C${partCodes.chassis[selectedParts.chassis].slice(1)}_F${partCodes.frontWing[selectedParts.frontWing].slice(1)}_R${partCodes.rearWing[selectedParts.rearWing].slice(1)}`;
+        }
+
+        function updatePreview() {
+            if (!selectedParts.engine || !selectedParts.tires || !selectedParts.chassis || !selectedParts.frontWing || !selectedParts.rearWing) {
+                document.getElementById("car-preview").src = "/static/images/32_cars/Car01_E1_T1_C1_F1_R1.png";
                 return;
             }
-            const imageName = `${chassis}_${engine}_${tires}_${spoiler}`.replace(/ /g, "_");
-            const path = `/static/images/16_cars/${imageName}.png`;
-            const img = new Image();
-            img.src = path;
-            img.alt = "Racecar Preview";
-            img.style.maxWidth = "90%";
-            display.innerHTML = "";
-            display.appendChild(img);
+
+            const partCodes = {
+                engine: { "2004_v10_Engine": "E1", "2006_v8_Engine": "E2" },
+                tires: { "C5_Slick_Tire": "T1", "Full_Wet_Tire": "T2" },
+                chassis: { "Standard_Monocoque_Chassis": "C1", "GroundEffectOptimized_Monocoque_Chassis": "C2" },
+                frontWing: { "High_Lift_FrontWing": "F1", "Simple_Outwash_FrontWing": "F2" },
+                rearWing: { "High_Downforce_RearWing": "R1", "Low_Drag_RearWing": "R2" }
+            };
+
+            const code = [
+                partCodes.engine[selectedParts.engine],
+                partCodes.tires[selectedParts.tires],
+                partCodes.chassis[selectedParts.chassis],
+                partCodes.frontWing[selectedParts.frontWing],
+                partCodes.rearWing[selectedParts.rearWing]
+            ].join("_");
+
+            const match = CAR_IMAGES.find(name => name.includes(`_${code}.png`));
+            if (!match) {
+                console.warn("No matching image found for:", code);
+            }
+
+            const path = match ? `/static/images/32_cars/${match}` : "/static/images/32_cars/Car01_E1_T1_C1_F1_R1.png";
+            document.getElementById("car-preview").src = path;
         }
 
-        document.querySelectorAll('.part-card').forEach(card => {
-            card.onclick = () => {
-                const category = card.dataset.category;
-                const part = card.dataset.part;
-                selectedParts[category] = part;
-                document.querySelectorAll(`.part-card[data-category='${category}']`).forEach(c => c.classList.remove("selected"));
-                card.classList.add("selected");
-                updateCarPreview();
-                sendToDaxSim(`I picked ${part} for ${category}.`);
-            }
-        });
+        function capitalize(word) {
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }
+
+        function addMessage(role, text) {
+            const chat = document.getElementById("chat-log");
+            const div = document.createElement("div");
+            div.className = `p-2 rounded ${role === 'player' ? 'bg-gray-700 self-end text-right' : 'bg-green-900 self-start'} max-w-[80%]`;
+            div.innerHTML = `<strong>${role === 'player' ? 'You' : 'Dax'}:</strong> ${text}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
 
         async function sendToDax(event) {
             event.preventDefault();
@@ -257,48 +322,35 @@
             sendToDaxSim(message);
         }
 
-        function addMessage(role, text) {
-            const chat = document.getElementById("chat-log");
-            const div = document.createElement("div");
-            div.className = `chat-bubble ${role}`;
-            div.innerHTML = `<strong>${role === 'player' ? 'You' : 'Dax'}:</strong> ${text}`;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
         async function sendToDaxSim(text) {
             const formData = new FormData();
             formData.append("player_id", playerId);
             formData.append("npc_id", 1);
             formData.append("dialogue", text);
-            addMessage("npc");
-            try {
-                const res = await fetch("/chat_api", { 
-                    method: "POST", body: formData 
-                }) 
-                .then(response => response.json())
-                .then(data => {
-                    addMessage("npc", data.npc_reply);
-                })
-                .catch(error => {
-                    console.error("Error:", error);
-                    addMessage("npc", "⚠️ Sorry, I couldn’t respond right now.");
-                });
-                const data = await res.json();
-                addMessage("npc", data.npc_reply || "...");
-                } catch {
-                    addMessage("npc");
-                }
-            }
 
-        fetch(`/history_api/${playerId}`)
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(entry => {
-                    addMessage("player", entry.dialogue);
-                    addMessage("npc", entry.npc_reply);
-                });
+            const bubble = document.createElement("div");
+            bubble.className = "p-2 rounded bg-green-900 max-w-[80%]";
+            bubble.id = "thinking-bubble";
+            bubble.innerHTML = "<strong>Dax:</strong> ...";
+            document.getElementById("chat-log").appendChild(bubble);
+
+            try {
+                const res = await fetch("/chat_api", { method: "POST", body: formData });
+                const data = await res.json();
+                document.getElementById("thinking-bubble")?.remove();
+                addMessage("npc", data.npc_reply?.trim() || "⚠️ I didn't catch that.");
+            } catch (err) {
+                console.error(err);
+                document.getElementById("thinking-bubble")?.remove();
+                addMessage("npc", "⚠️ Connection error. Try again later.");
+            }
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            createPartCards();
+            updateSummary();
         });
+
     </script>
 </body>
 
