@@ -104,7 +104,7 @@ uvicorn main:app --reload
 ```
 
 7. **Access Frontend:**
-- Open [http://localhost:8000/chat](http://localhost:8000/chat)
+- Open [http://localhost:8000/chat](http://localhost:8000/)
 
 ---
 
