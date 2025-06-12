@@ -1,4 +1,36 @@
-<h2>You're all set!</h2>
-<p>Thanks for testing both NPCs. Please submit your feedback to help us improve.</p>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Evaluation</title>
+    </head>
+    <body style="margin:0; padding:0; overflow:hidden; font-family:sans-serif; color:white;">
 
-<a href="https://forms.gle/5rh8SUgVhnP58tns8" target="_blank" class="btn">📝 Submit Feedback</a>
+        <video id="video-bg" autoplay muted loop style="position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-2;">
+            <source src="/static/videos/f1_intro.mp4" type="video/mp4">
+        </video>
+        <div style="
+            position:fixed;
+            top:0; left:0;
+            width:100%; height:100%;
+            background:rgba(0,0,0,0.5);
+            z-index:-1;">
+        </div>
+        <div style="position:relative; z-index:1; text-align:center; padding:2rem;">
+            <h2 style="font-size:2.5rem; margin-bottom:1rem;">You're all set!</h2>
+            <p style="font-size:1.2rem; margin-bottom:2rem;">
+                Thanks for participating. Please submit your feedback to help us improve.
+            </p>
+            <a href="https://forms.gle/5rh8SUgVhnP58tns8?player_id={{ request.query_params.player_id }}" target="_blank" style="
+                        display:inline-block;
+                        padding:0.75rem 1.5rem;
+                        background:#ffcc00;
+                        color:#111;
+                        text-decoration:none;
+                        border-radius:0.5rem;
+                        font-size:1rem;">📝 Submit Feedback
+            </a>
+            <input type="hidden" name="player_id" value="{{ player_id }}">
+        </div>
+    </body>
+</html>

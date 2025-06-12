@@ -6,17 +6,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background-color: #101820;
-            color: #fff;
-            font-family: 'Segoe UI', sans-serif;
-            padding: 0;
-            margin: 0;
+            background: beige;
         }
 
         .container {
             max-width: 700px;
             margin: 60px auto;
-            background-color: #1c1c1c;
+            background-color: #913131;
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
@@ -53,7 +49,8 @@
             margin-bottom: 10px;
         }
 
-        select, button {
+        select,
+        button {
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 15px;
@@ -84,11 +81,6 @@
             background-color: #0f0f0f;
         }
 
-        #middle-display img:hover {
-            max-height: 420px;
-            transform: scale(1.05);
-            box-shadow: 0 0 50px rgba(0, 255, 0, 0.4);
-        }
 
         #chat-log {
             word-wrap: break-word;
@@ -99,6 +91,7 @@
         .chat-log::-webkit-scrollbar {
             width: 6px;
         }
+
         .chat-log::-webkit-scrollbar-thumb {
             background: #444;
             border-radius: 4px;
@@ -137,7 +130,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-        }        
+        }
 
         .player-select {
             margin-bottom: 10px;
@@ -153,8 +146,10 @@
         }
 
         .part-card {
+            flex: 0 0 auto;
+            /* do not shrink */
             width: 120px;
-            margin: 50px;
+            margin: 0;
             padding: 7px;
             text-align: center;
             background-color: #1a1a1a;
@@ -163,30 +158,38 @@
             transition: 0.2s ease;
             cursor: pointer;
         }
+
         .part-card:hover {
             background-color: #2a2a2a;
             border-color: #888;
         }
+
         .part-card.selected {
             border-color: #0f0;
             background-color: #222;
         }
+
         .part-card img {
             width: auto;
             height: auto;
         }
+
         .part-options {
             display: flex;
-            gap: 15px;
             flex-wrap: wrap;
             justify-content: flex-start;
+            gap: 16px;
+        }
+
+        .part-card p {
+            color: white;
         }
 
         .parts-panel {
             width: 40%;
             padding: 20px;
             color: white;
-        }       
+        }
 
         .chat-log {
             max-height: 100%;
@@ -207,383 +210,516 @@
             background-color: #0066cc;
         }
 
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            /* darken for readability */
+            z-index: -1;
+        }
     </style>
 </head>
 
 <body style="margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column;">
-    
+
     <!-- Top 70%: Parts + Preview -->
     <div style="flex: 7; display: flex; overflow: hidden;">
-        
+
         <!-- Left 35%: Part Selection -->
-        <div style="width: 50%; background: #0d0d0d; padding: 16px; overflow-y: auto;">
-            
-            <h1>Select Parts</h1>
-            
-            <a href="/cover" class="nav-btn" style="display: inline-block; margin-bottom: 10px;">🏁 Back to Cover</a>
-            
+        <div style="
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(4px);
+        padding: 16px;
+        overflow-y: auto;
+        border-right: 1px solid rgba(255,255,255,0.1);">
+
+            <div class="text-center mb-4">
+                <h1 class="text-2xl font-bold text-yellow-400">Select Car Parts</h1>
+            </div>
+
             <div class="part-group" id="chassis-group">
-                <h3>Chassis:</h3>
+                <h3 class="text-white font-semibold text-lg mb-2">Chassis:</h3>
+
                 <div class="part-options">
-                    <div class="part-card" data-category="chassis" data-part="Standard">
-                        <img src="/static/images/car_parts/Standard_Chassis.png" alt="Standard" />
-                        <p>Standard</p>
+                    <div class="part-card" data-category="chassis" data-part="Standard Monocoque">
+                        <img src="/static/images/car_parts/Standard_Monocoque_Chassis.png" alt="Standard Monocoque" />
+                        <p>Standard Monocoque</p>
                     </div>
                     <div class="part-card" data-category="chassis" data-part="Lightweight">
-                        <img src="/static/images/car_parts/Lightweight_Chassis.png" alt="Lightweight" />
-                        <p>Lightweight</p>
+                        <img src="/static/images/car_parts/GroundEffectOptimized_Monocoque_Chassis.png"
+                            alt="lightweight" />
+                        <p>Ground Effect Optimized</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="part-group" id="engine-group">
-                <h3>Engine:</h3>
+                <h3 class="text-white font-semibold text-lg mb-2">Engine:</h3>
                 <div class="part-options">
-                    <div class="part-card" data-category="engine" data-part="Turbo">
-                        <img src="/static/images/car_parts/Turbo_Engine.png" alt="Turbo" />
-                        <p>Turbo</p>
+                    <div class="part-card" data-category="engine" data-part="2004 V10">
+                        <img src="/static/images/car_parts/2004_v10_Engine.png" alt="2004 V10" />
+                        <p>2004 V10</p>
                     </div>
-                    <div class="part-card" data-category="engine" data-part="V8">
-                        <img src="/static/images/car_parts/V8_Engine.png" alt="V8" />
-                        <p>V8</p>
+                    <div class="part-card" data-category="engine" data-part="2006 V8">
+                        <img src="/static/images/car_parts/2006_v8_Engine.png" alt="2006 V8" />
+                        <p>2006 V8</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="part-group" id="tires-group">
-                <h3>Tires:</h3>
+                <h3 class="text-white font-semibold text-lg mb-2">Tires:</h3>
                 <div class="part-options">
-                    <div class="part-card" data-category="tires" data-part="Slick">
-                        <img src="/static/images/car_parts/Slick_Tire.png" alt="Slick" />
-                        <p>Slick</p>
+                    <div class="part-card" data-category="tires" data-part="C5 Slick">
+                        <img src="/static/images/car_parts/C5_Slick_Tire.png" alt="C5 Slick" />
+                        <p>C5 Slick</p>
                     </div>
-                    <div class="part-card" data-category="tires" data-part="Wet">
-                        <img src="/static/images/car_parts/Wet_Tire.png" alt="Wet" />
-                        <p>Wet</p>
+                    <div class="part-card" data-category="tires" data-part="Full Wet">
+                        <img src="/static/images/car_parts/Full_Wet_Tire.png" alt="Full Wet" />
+                        <p>Full Wet</p>
                     </div>
                 </div>
             </div>
-            
-            <div class="part-group" id="spoiler-group">
-                <h3>Spoiler:</h3>
+
+            <div class="part-group" id="front_wing-group">
+                <h3 class="text-white font-semibold text-lg mb-2">Front Wing:</h3>
                 <div class="part-options">
-                    <div class="part-card" data-category="spoiler" data-part="None">
-                        <img src="/static/images/car_parts/No_Spoiler.png" alt="None" />
-                        <p>None</p>
+                    <div class="part-card" data-category="front_wing" data-part="High Lift">
+                        <img src="/static/images/car_parts/High_Lift_FrontWing.png" alt="High Lift" />
+                        <p>High Lift</p>
                     </div>
-                    <div class="part-card" data-category="spoiler" data-part="Carbon Fiber">
-                        <img src="/static/images/car_parts/Carbon_Spoiler.png" alt="Carbon Fiber" />
+                    <div class="part-card" data-category="front_wing" data-part="Carbon Fiber">
+                        <img src="/static/images/car_parts/Simple_Outwash_FrontWing.png" alt="Carbon Fiber" />
                         <p>Carbon Fiber</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="part-group" id="rear_wing-group">
+                <h3 class="text-white font-semibold text-lg mb-2">Rear Wing :</h3>
+                <div class="part-options">
+                    <div class="part-card" data-category="rear_wing" data-part="High Downforce">
+                        <img src="/static/images/car_parts/High_Downforce_RearWing.png" alt="High Downforce" />
+                        <p>High Downforce</p>
+                    </div>
+                    <div class="part-card" data-category="rear_wing" data-part="Low Drag">
+                        <img src="/static/images/car_parts/Low_Drag_RearWing.png" alt="Low Drag" />
+                        <p>Low Drag</p>
                     </div>
                 </div>
             </div>
             <hr style="margin: 20px 0; border: 1px solid #333;">
             <button id="submitBtn" class="final-submit" onclick="submitFinalBuild()">Complete Build</button>
         </div>
-    
+
         <!-- Right 35%: Car Preview -->
-        <div id="middle-display" style="width: 50%; background: #121212; display: flex; justify-content: center; align-items: center;">
-            <div id="car-image" style="margin-top: 20px; display: flex; justify-content: center;"></div>
+        <div id="middle-display" style="
+            width: 50%;
+            background: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            ">
+
         </div>
-    </div>
-               
-    <!-- Bottom 30%: TurboTom Chat -->
-    <div style="flex: 5; background: #0f1115; padding: 20px; overflow-y: hidden; border-top: 2px solid #222; display: flex; flex-direction: column;">
-        <h2 class="text-yellow-400 text-xl font-bold mb-2">TurboTom</h2>
-        
-        <div id="chat-log" class="chat-log" style="flex: 1; overflow-y: auto; margin-bottom: 1rem;"></div>
-        
-        <div id="options-container" class="mt-4" style="text-align: center;"></div>
+        <!-- Bottom 30%: TurboTom Chat -->
+        <!-- Floating TurboTom Chat Panel -->
+        <div style="
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            transform: none;
+            width: 360px;
+            background: rgba(15, 17, 21, 0.6); /* semi-transparent background */
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1); /* subtle transparent border */
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 100, 0.15); /* soft glow */
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            max-height: 60vh;
+            overflow-y: auto;
+            backdrop-filter: blur(4px); /* optional: frosted glass effect */">
+            <h2 class="text-yellow-400 text-xl font-bold mb-2">TurboTom</h2>
 
-        <div class="mt-6 text-center">
-            <a href="/evaluation" class="btn finish-btn" style="background: #4caf50; padding: 12px 20px; color: white; border-radius: 8px; text-decoration: none;"> Done? Submit Feedback</a>        
+            <div id="chat-log" class="chat-log" style="flex: 1; overflow-y: auto; margin-bottom: 1rem;"></div>
+
+            <div id="options-container" class="mt-4" style="text-align: center;"></div>
+
+            <div class="flex justify-center items-center mt-2">
+                <a href="/evaluation"
+                    class="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded shadow">Submit
+                    Feedback</a>
+            </div>
         </div>
-    </div>
 
-    
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const playerId = localStorage.getItem("player_id");
-        if (!playerId) {
-            alert("Player ID not found. Please login again.");
-            window.location.href = "/login";
-        }
+        <script>
+            const partCodeMap = {
+                chassis: {
+                    "Standard Monocoque": "C1",
+                    "Ground Effect Optimized": "C2"
+                },
+                engine: {
+                    "2004 V10": "E1",
+                    "2006 V8": "E2"
+                },
+                tires: {
+                    "C5 Slick": "T1",
+                    "Full Wet": "T2"
+                },
+                front_wing: {
+                    "High Lift": "F1",
+                    "Carbon Fiber": "F2"
+                },
+                rear_wing: {
+                    "High Downforce": "R1",
+                    "Low Drag": "R2"
+                }
+            };
 
-        const selectedParts = {
-            chassis: null,
-            engine: null,
-            tires: null,
-            spoiler: null
-        };
-
-        function updateCarPreview() {
-                const { chassis, engine, tires, spoiler } = selectedParts;
-                if (!chassis || !engine || !tires || !spoiler) {
-                    carImage.innerHTML = `<p class="text-gray-400">Complete all selections to view your car.</p>`;
-                    return;
+            document.addEventListener("DOMContentLoaded", () => {
+                const playerId = localStorage.getItem("player_id");
+                if (!playerId) {
+                    alert("Player ID not found. Please login again.");
+                    window.location.href = "/login";
                 }
 
-                const imageName = `${chassis}_${engine}_${tires}_${spoiler}`.replace(/ /g, "_");
-                const path = `/static/images/16_cars/${imageName}.png`;
+                const selectedParts = {
+                    chassis: null,
+                    engine: null,
+                    tires: null,
+                    front_wing: null,
+                    rear_wing: null
+                };
 
-                const img = new Image();
-                img.src = path;
-                img.alt = "Live Car Preview";
-                img.style.maxHeight = "350px";
-                img.style.borderRadius = "8px";
-                img.style.border = "2px solid #444";
-                img.style.marginTop = "10px";
+                function updateCarPreview() {
+                    const { chassis, engine, tires, front_wing, rear_wing } = selectedParts;
+                    const middleDisplay = document.getElementById("middle-display");
 
-                const preview = document.getElementById("middle-display");
-                preview.innerHTML = "";  // clear previous
-                preview.appendChild(img);
-        }
+                    if (!chassis || !engine || !tires || !front_wing || !rear_wing) {
+                        middleDisplay.style.backgroundImage = "";
+                        middleDisplay.style.backgroundColor = "black";
+                        return;
+                    }
 
+                    const chassisCode = partCodeMap.chassis[chassis];
+                    const engineCode = partCodeMap.engine[engine];
+                    const tiresCode = partCodeMap.tires[tires];
+                    const frontWingCode = partCodeMap.front_wing[front_wing];
+                    const rearWingCode = partCodeMap.rear_wing[rear_wing];
 
-        const chatLog = document.getElementById("chat-log");
-        const optionsContainer = document.getElementById("options-container");
-        
-        let currentNode = "start";
-        let currentStep = "chassis"; // start here
+                    const fileName = `${engineCode}_${tiresCode}_${chassisCode}_${frontWingCode}_${rearWingCode}.png`;
+                    const imagePath = `/static/images/32_cars/${fileName}`;
 
-        const storyFlow = {
-                start: {
-                    npc: "Welcome, racer! Ready to join the Grand Prix challenge?",
-                    options: {
-                        "Let's go!": "intro1",
-                        "Who are you?": "intro2",
-                        "I'm not sure...": "intro3"
-                    }
-                },
-                intro1: {
-                    npc: "Awesome! You're going to build a custom F1 car. Let's start with the chassis.",
-                    options: {
-                        "Why chassis first?": "whyChassis",
-                        "Okay, show me parts.": "chassisBuild",
-                        "How many parts are there?": "explainParts"
-                    }
-                },
-                intro2: {
-                    npc: "I'm TurboTom! A retired F1 engineer helping rookies like you. Want to build a car?",
-                    options: {
-                        "Yes, let's go!": "intro1",
-                        "Do I need experience?": "noExperience"
-                    }
-                },
-                intro3: {
-                    npc: "No worries. It's simple. Choose parts step-by-step, and I'll guide you.",
-                    options: {
-                        "Alright, let's begin.": "intro1",
-                        "What's the goal?": "raceGoal"
-                    }
-                },
-                whyChassis: {
-                    npc: "The chassis determines weight and control. It's the car's foundation!",
-                    options: {
-                        "Let's pick one.": "chassisBuild"
-                    }
-                },
-                explainParts: {
-                    npc: "You'll pick 4 parts: Chassis, Engine, Tires, Spoiler. Each affects your speed and handling.",
-                    options: {
-                        "Let's start.": "chassisBuild"
-                    }
-                },
-                raceGoal: {
-                    npc: "The goal is to finish the Academy race with the best balance of speed and grip.",
-                    options: {
-                        "Let's do this.": "intro1"
-                    }
-                },
-                noExperience: {
-                    npc: "None needed. Just follow my lead and trust your instincts.",
-                    options: {
-                        "Cool. Let's start.": "intro1"
-                    }
-                },
-                chassisBuild: {
-                    npc: "Go ahead and pick a chassis from the left panel!",
-                    options: {
-                        "Picked it!": "engineBuild"
-                    }
-                },
-                engineBuild: {
-                    npc: "Nice. Now choose your engine — more power or efficiency?",
-                    options: {
-                        "Got my engine.": "tiresBuild"
-                    }
-                },
-                tiresBuild: {
-                    npc: "Tires next. Grip vs durability. Choose wisely!",
-                    options: {
-                        "Tires locked in.": "spoilerBuild"
-                    }
-                },
-                spoilerBuild: {
-                    npc: "Last part — spoiler. Adds downforce but also weight.",
-                    options: {
-                        "Selected!": "finish"
-                    }
-                },
-                finish: {
-                    npc: "You're ready! Hit submit and get ready to race. Here are some tips: Stick to racing lines, manage your tires, and brake late into corners!",
-                    options: {}
+                    // Test image existence before applying background
+                    const img = new Image();
+                    img.src = imagePath;
+
+                    img.onload = () => {
+                        middleDisplay.style.backgroundImage = `url('${imagePath}')`;
+                        middleDisplay.style.backgroundSize = "cover";
+                        middleDisplay.style.backgroundRepeat = "no-repeat";
+                        middleDisplay.style.backgroundPosition = "center";
+                    };
+
+                    img.onerror = () => {
+                        console.warn("Image not found:", imagePath);
+                        middleDisplay.style.backgroundImage = "";
+                        middleDisplay.style.backgroundColor = "black"; // fallback
+                    };
                 }
-        };
+                const chatLog = document.getElementById("chat-log");
+                const optionsContainer = document.getElementById("options-container");
+                let currentNode = "start";
 
-        function submitBuildPart(partType, value) {
-            const formData = new FormData();
-            formData.append("player_id", playerId);
-            formData.append("chassis", selectedParts.chassis);
-            formData.append("engine", selectedParts.engine);
-            formData.append("tires", selectedParts.tires);
-            formData.append("spoiler", selectedParts.spoiler);
+                const storyFlow = {
+                    start: {
+                        npc: "Welcome, racer! Ready to join the Grand Prix challenge?",
+                        options: {
+                            "Let's go!": "intro1",
+                            "Who are you?": "intro2",
+                            "I'm not sure what to do.": "intro3",
+                            "What’s the reward for winning?": "rewardInfo"
+                        }
+                    },
+                    intro1: {
+                        npc: "Awesome! You're going to build a custom F1 car. We'll start with the chassis.",
+                        options: {
+                            "Why chassis first?": "whyChassis",
+                            "Okay, show me parts.": "chassisBuild",
+                            "How many parts do I pick?": "explainParts",
+                            "What happens after building?": "afterBuild"
+                        }
+                    },
+                    intro2: {
+                        npc: "I'm TurboTom! A retired F1 engineer helping rookies like you. Want to build your car now?",
+                        options: {
+                            "Yes, take me through it.": "intro1",
+                            "Do I need prior experience?": "noExperience",
+                            "Why are you helping me?": "aboutTom"
+                        }
+                    },
+                    intro3: {
+                        npc: "No worries! We’ll go step-by-step. You pick chassis, engine, tires, front wing, and rear wing.",
+                        options: {
+                            "Alright, let's begin.": "intro1",
+                            "Tell me more about the parts.": "explainParts",
+                            "Is this a real race?": "raceContext"
+                        }
+                    },
+                    rewardInfo: {
+                        npc: "Bragging rights, leaderboard glory, and a shot at unlocking advanced tuning features!",
+                        options: {
+                            "Nice! Let's build.": "intro1",
+                            "What’s advanced tuning?": "advancedTuning"
+                        }
+                    },
+                    advancedTuning: {
+                        npc: "You’ll tweak settings like suspension and downforce manually — coming soon after race mode!",
+                        options: {
+                            "Alright, I’ll build first.": "intro1"
+                        }
+                    },
+                    aboutTom: {
+                        npc: "I love racing and helping new drivers build smart. Let’s make you a champion.",
+                        options: {
+                            "Let's go!": "intro1",
+                            "Got any tips?": "drivingTips"
+                        }
+                    },
+                    drivingTips: {
+                        npc: "Stick to the racing line, brake late into turns, and don’t overheat the tires.",
+                        options: {
+                            "Thanks! Let’s build.": "intro1"
+                        }
+                    },
+                    noExperience: {
+                        npc: "No experience needed. I’ll guide you through everything!",
+                        options: {
+                            "Cool, let’s get started.": "intro1"
+                        }
+                    },
+                    raceContext: {
+                        npc: "It’s a virtual race academy test — real tracks, simulated conditions, leaderboard ranking.",
+                        options: {
+                            "Awesome. I'm ready.": "intro1"
+                        }
+                    },
+                    whyChassis: {
+                        npc: "The chassis affects control, weight, and balance — it’s the car’s skeleton!",
+                        options: {
+                            "Let’s pick a chassis.": "chassisBuild",
+                            "What types are there?": "explainParts"
+                        }
+                    },
+                    explainParts: {
+                        npc: "You’ll select: Chassis, Engine, Tires, Front Wing, Rear Wing. Each impacts handling and speed.",
+                        options: {
+                            "Sounds good. Let’s begin.": "chassisBuild",
+                            "How do I make the best choices?": "strategyTips"
+                        }
+                    },
+                    strategyTips: {
+                        npc: "Balance grip, speed, and stability. Don’t just go for power — control matters too.",
+                        options: {
+                            "Got it. Show me the parts.": "chassisBuild"
+                        }
+                    },
+                    afterBuild: {
+                        npc: "Once your car is ready, you can preview it and hit submit to enter the Academy race!",
+                        options: {
+                            "Understood. Start with chassis.": "chassisBuild"
+                        }
+                    },
+                    chassisBuild: {
+                        npc: "Pick your chassis from the left panel. Go for durability or weight savings?",
+                        options: {
+                            "Chassis selected.": "engineBuild",
+                            "What’s best for tight corners?": "chassisTips"
+                        }
+                    },
+                    chassisTips: {
+                        npc: "Lighter chassis help with cornering, but may reduce durability.",
+                        options: {
+                            "Thanks, I picked one.": "engineBuild"
+                        }
+                    },
+                    engineBuild: {
+                        npc: "Choose your engine — raw power or fuel efficiency? Your call.",
+                        options: {
+                            "Engine selected.": "tiresBuild",
+                            "Which is faster overall?": "engineTips"
+                        }
+                    },
+                    engineTips: {
+                        npc: "The V10 gives top speed, but burns more fuel. V8 is balanced.",
+                        options: {
+                            "Thanks, engine picked.": "tiresBuild"
+                        }
+                    },
+                    tiresBuild: {
+                        npc: "Now tires — dry grip or wet safety? Conditions matter!",
+                        options: {
+                            "Tires chosen.": "frontWingBuild",
+                            "What if it rains?": "tireTips"
+                        }
+                    },
+                    tireTips: {
+                        npc: "Full Wet tires give better control in rain but are slower on dry tracks.",
+                        options: {
+                            "Got it. Tires locked in.": "frontWingBuild"
+                        }
+                    },
+                    frontWingBuild: {
+                        npc: "Choose your front wing — high lift or streamlined flow?",
+                        options: {
+                            "Front wing selected.": "rearWingBuild",
+                            "How does this affect speed?": "frontWingTips"
+                        }
+                    },
+                    frontWingTips: {
+                        npc: "High lift gives better turns, but adds drag. Choose based on your style.",
+                        options: {
+                            "Okay, front wing done.": "rearWingBuild"
+                        }
+                    },
+                    rearWingBuild: {
+                        npc: "Final part — rear wing. More downforce = better stability but less top speed.",
+                        options: {
+                            "Rear wing locked in.": "finish",
+                            "What’s the difference between them?": "rearWingTips"
+                        }
+                    },
+                    rearWingTips: {
+                        npc: "High Downforce helps in curves, Low Drag helps on straights. Choose wisely!",
+                        options: {
+                            "I’ve made my choice.": "finish"
+                        }
+                    },
+                    finish: {
+                        npc: "You're done! Great job. Preview your car above and click 'Complete Build' to proceed.",
+                        options: {
+                            "Thanks, TurboTom!": "",
+                            "Can I edit parts again?": "restartHint"
+                        }
+                    },
+                    restartHint: {
+                        npc: "Sure, just select any part again from the left panel to re-choose.",
+                        options: {
+                            "Cool, I’ll make some changes.": ""
+                        }
+                    }
+                };
 
-            fetch("/save_car_build", {
-                method: "POST",
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert(" Car build submitted! Ready to race.");
-            })
-            .catch(error => {
-                alert(" Submission failed. Please try again.");
-                console.error(error);
-            });
-        }
-
-        window.addEventListener("DOMContentLoaded", () => {
-            updateCarPreview();
-            chatLog.innerHTML = "";
-            optionsContainer.innerHTML = "";
-            currentNode = "start";
-            renderNode(currentNode);
-        });
-
-        function renderNode(key) {
-                const node = storyFlow[key];
-                if (!node) return;
-
-                chatLog.innerHTML += `<div class="chat-bubble npc"><strong>TurboTom:</strong> ${node.npc}</div>`;
-                optionsContainer.innerHTML = "";
-                console.log("Rendering node:", key);
-                console.log("NPC says:", node.npc);
-
-
-                if (Object.keys(node.options).length === 0) {
-                    optionsContainer.innerHTML = "<p style='color: gray;'> No more options. Build complete.</p>";
-                    return;
+                function submitBuildPart(partType, value) {
+                    const formData = new FormData();
+                    formData.append("player_id", playerId);
+                    formData.append("chassis", selectedParts.chassis);
+                    formData.append("engine", selectedParts.engine);
+                    formData.append("tires", selectedParts.tires);
+                    formData.append("front_wing", selectedParts.front_wing);
+                    formData.append("rear_wing", selectedParts.rear_wing);
+                    fetch("/save_car_build", {
+                        method: "POST",
+                        body: formData
+                    })
+                        .catch(error => {
+                            alert(" Submission failed. Please try again.");
+                            console.error(error);
+                        });
                 }
 
-                Object.keys(node.options).forEach(label => {
-                    const btn = document.createElement("button");
-                    btn.className = "option-btn";
-                    btn.textContent = label;
-                    btn.disabled = false;
-                    btn.onclick = () => progressConversation(label);
-                    optionsContainer.appendChild(btn);
-                    console.log("Rendered option button:", label);
-
+                window.addEventListener("DOMContentLoaded", () => {
+                    updateCarPreview();
+                    chatLog.innerHTML = "";
+                    optionsContainer.innerHTML = "";
+                    currentNode = "start";
+                    renderNode(currentNode);
                 });
 
-                chatLog.scrollTop = chatLog.scrollHeight;
-            }
+                function renderNode(key) {
+                    const node = storyFlow[key];
+                    if (!node) return;
+                    chatLog.innerHTML += `
+                <div style="display: flex; align-items: flex-start; margin-bottom: 10px;">
+                <img src="/static/images/instructors/tom.png" alt="TurboTom" style="width: 60px; height: 60px; border-radius: 60%; margin-right: 20px;">
+                <div class="chat-bubble npc"><strong>TurboTom:</strong> ${node.npc}</div></div>`;
+                    optionsContainer.innerHTML = "";
+                    if (!node.options || Object.keys(node.options).length === 0) {
+                        optionsContainer.innerHTML = "<p class='text-gray-400 text-center'>No more options. You’re all set!</p>";
+                        return;
+                    }
+                    Object.entries(node.options).forEach(([label, nextKey]) => {
+                        const btn = document.createElement("button");
+                        btn.className = "option-btn";
+                        btn.textContent = label;
+                        btn.onclick = () => progressConversation(label);
+                        optionsContainer.appendChild(btn);
+                    });
+                    chatLog.scrollTop = chatLog.scrollHeight;
+                }
 
-        function progressConversation(choiceLabel) {
-                
-            const node = storyFlow[currentNode];
-            const nextKey = Object.keys(node.options).find(key => key.trim() === choiceLabel.trim());
-            const nextNode = storyFlow[nextKey];
-            console.log("Clicked label:", choiceLabel);
+                function progressConversation(choiceLabel) {
+                    const node = storyFlow[currentNode];
+                    const nextKey = node.options[choiceLabel];
+                    const nextNode = storyFlow[nextKey];
 
-            if (!nextNode) {
-                console.error("No nextNode found for label:", choiceLabel);
-                return;
-            }
-            
-            if (!nextNode) return;
+                    if (!nextNode) {
+                        console.error("No nextNode found for label:", choiceLabel);
+                        return;
+                    }
+                    chatLog.innerHTML += `<div class="chat-bubble player"><strong>You:</strong> ${choiceLabel}</div>`;
+                    currentNode = nextKey;
+                    renderNode(currentNode);
+                    // Auto-scroll and update preview at final step
+                    if (currentNode === "finish") {
+                        updateCarPreview();
+                        document.getElementById("middle-display").scrollIntoView({ behavior: "smooth" });
+                    }
+                }
 
-            chatLog.innerHTML += `<div class="chat-bubble player"><strong>You:</strong> ${choiceLabel}</div>`;
-            currentNode = nextKey;
-            renderNode(currentNode);
+                function selectPart(category, part) {
+                    const group = document.getElementById(`${category}-group`);
+                    const cards = group.querySelectorAll('.part-card');
+                    cards.forEach(card => card.classList.remove('selected'));
+                    const selectedCard = group.querySelector(`.part-card[data-part="${part}"]`);
+                    if (selectedCard) {
+                        selectedCard.classList.add('selected');
+                    }
+                    selectedParts[category] = part;
+                    updateCarPreview();
+                    submitBuildPart(category, part);
+                    // Progress logic should come AFTER setting the value
 
-            // Auto-scroll and update preview at final step
-            if (currentNode === "finish") {
-                updateCarPreview();
-                document.getElementById("middle-display").scrollIntoView({ behavior: "smooth" });
-            }
+                    if (currentNode === "engineBuild" && category === "engine") {
+                        progressConversation("Got my engine.");
+                    }
+                    if (currentNode === "tiresBuild" && category === "tires") {
+                        progressConversation("Tires locked in.");
+                    }
+                    if (currentNode === "frontWingBuild" && category === "front_wing") {
+                        progressConversation("Front wing selected.");
+                    }
+                    if (currentNode === "rearWingBuild" && category === "rear_wing") {
+                        progressConversation("Rear wing locked in.");
+                    }
+                }
 
-            console.log("Clicked label:", choiceLabel);
-            console.log("Current node:", currentNode);
-            console.log("Next key:", node.options[choiceLabel]);
-            console.log("Next node:", nextNode);
-
-        }
-
-        function selectPart(category, part) {
-            const group = document.getElementById(`${category}-group`);
-            const cards = group.querySelectorAll('.part-card');
-            cards.forEach(card => card.classList.remove('selected'));
-
-            const selectedCard = group.querySelector(`.part-card[data-part="${part}"]`);
-            if (selectedCard) {
-                selectedCard.classList.add('selected');
-            }
-
-            selectedParts[category] = part;
-
-            updateCarPreview();
-            submitBuildPart(category, part);
-
-            // Progress logic should come AFTER setting the value
-            if (currentNode === "chassisBuild" && category === "chassis") {
-                progressConversation("Picked it!");
-            }
-            if (currentNode === "engineBuild" && category === "engine") {
-                progressConversation("Got my engine.");
-            }
-            if (currentNode === "tiresBuild" && category === "tires") {
-                progressConversation("Tires locked in.");
-            }
-            if (currentNode === "spoilerBuild" && category === "spoiler") {
-                progressConversation("Selected!");
-            }
-        }
-
-        document.querySelectorAll('.part-card').forEach(card => {
-                card.onclick = () => {
-                    const category = card.dataset.category;
-                    const part = card.dataset.part;
-                    selectPart(category, part);
-                };
-            }
-        );
-
-        const imageVariants = [
-                "Standard_Turbo_Slick_None",
-                "Standard_Turbo_Slick_Carbon_Fiber",
-                "Standard_Turbo_Wet_None",
-                "Standard_Turbo_Wet_Carbon_Fiber",
-                "Standard_V8_Slick_None",
-                "Standard_V8_Slick_Carbon_Fiber",
-                "Standard_V8_Wet_None",
-                "Standard_V8_Wet_Carbon_Fiber",
-                "Lightweight_Turbo_Slick_None",
-                "Lightweight_Turbo_Slick_Carbon_Fiber",
-                "Lightweight_Turbo_Wet_None",
-                "Lightweight_Turbo_Wet_Carbon_Fiber",
-                "Lightweight_V8_Slick_None",
-                "Lightweight_V8_Slick_Carbon_Fiber",
-                "Lightweight_V8_Wet_None",
-                "Lightweight_V8_Wet_Carbon_Fiber"
-            ];
-
-            imageVariants.forEach(name => {
-                const img = new Image();
-                img.src = `/static/images/16_cars/${name}.png`;
-            });
-    });        
-</script>
+                document.querySelectorAll('.part-card').forEach(card => {
+                    card.onclick = () => {
+                        const category = card.dataset.category;
+                        const part = card.dataset.part;
+                        selectPart(category, part);
+                    };
+                });
+            }); 
+        </script>
 </body>
+
 </html>

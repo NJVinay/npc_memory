@@ -93,7 +93,7 @@
                     })
                     .then(data => {
                         localStorage.setItem("player_id", data.player_id);
-                        window.location.href = "/cover?player_id=${data.player_id}";
+                        window.location.href = `/cover?player_id=${data.player_id}`;
                     })
                     .catch(err => {
                         alert("Login failed. Please check your ID and PIN.");

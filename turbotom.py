@@ -1,51 +1,55 @@
-from models import CarBuild
 from sqlalchemy.orm import Session
-import re
+from fastapi import HTTPException
 
-# Define keyword-based rules
-RESPONSE_RULES = {
-    "engine": {
-        "turbo": "Turbo’s fast but burns out easy. You sure you can handle it?",
-        "v8": "Good call! V8s are heavy but reliable."
+TOM_TREE = {
+    "start": {
+        "npc": "Hey, rookie! Ready to build this machine?",
+        "options": {
+        "Let's go!": "chassis_step",
+        "What is this?": "intro_info"
+        }
     },
-    "tires": {
-        "slick": "Slicks grip the track like a dream — if it’s dry.",
-        "wet": "Rainy day? Wet tires are the way to go."
+    "intro_info": {
+        "npc": "I’m TurboTom, retired F1 engineer. I’ll guide you step-by-step.",
+        "options": {"Let’s build!": "chassis_step"}
     },
-    "spoiler": {
-        "none": "No spoiler? You might lose traction at high speeds.",
-        "carbon fiber": "Now we’re talking! That’ll keep you glued to the road."
+    "chassis_step": {
+        "npc": "First up: pick a chassis. Standard or Lightweight?",
+        "options": {"Standard": "engine_step", "Lightweight": "engine_step"}
     },
-    "chassis": {
-        "standard": "Sturdy choice. Nothing flashy, but it works.",
-        "lightweight": "Lightweight’s fast — but don’t crash, or it’s over."
+    "engine_step": {
+        "npc": "Great. Now choose your engine: Turbo or V8?",
+        "options": {"Turbo": "tires_step", "V8": "tires_step"}
+    },
+    "tires_step": {
+        "npc": "Tires next. Slick for dry, Wet for rain. Your call.",
+        "options": {"Slick": "spoiler_step", "Wet": "spoiler_step"}
+    },
+    "spoiler_step": {
+        "npc": "Last piece: spoiler. None or Carbon Fiber?",
+        "options": {"None": "final_step", "Carbon Fiber": "final_step"}
+    },
+    "final_step": {
+        "npc": "All set! Good luck on the track—don’t forget to warm up those tires!",
+        "options": {}
     }
 }
 
-def get_latest_build(player_id: int, db: Session):
-    return db.query(CarBuild).filter(CarBuild.player_id == player_id).order_by(CarBuild.id.desc()).first()
+# in-memory state per player (for demo only—consider DB in long run)
+PLAYER_STATE = {}
 
 def turbotom_response(dialogue: str, player_id: int, db: Session) -> str:
-    dialogue = dialogue.lower()
-    build = get_latest_build(player_id, db)
-    
-    # Intent: Ask about parts
-    if any(kw in dialogue for kw in ["engine", "v8", "turbo"]):
-        return RESPONSE_RULES["engine"].get(build.engine.lower(), "Pick wisely — speed’s nothing without control.") if build else "Pick your engine first!"
-    if any(kw in dialogue for kw in ["tire", "slick", "wet"]):
-        return RESPONSE_RULES["tires"].get(build.tires.lower(), "Tires decide traction. Choose carefully.") if build else "Choose tires before asking!"
-    if any(kw in dialogue for kw in ["spoiler", "aero", "wing"]):
-        return RESPONSE_RULES["spoiler"].get(build.spoiler.lower(), "Spoilers keep you grounded.") if build else "Pick a spoiler first!"
-    if any(kw in dialogue for kw in ["chassis", "frame", "body"]):
-        return RESPONSE_RULES["chassis"].get(build.chassis.lower(), "Chassis is your foundation.") if build else "Pick a chassis first!"
-    
-    # Intent: Build complete
-    if any(kw in dialogue for kw in ["done", "start", "ready"]):
-        return "Got guts, huh? Let’s see what this beast can do."
+    # initialize state
+    state = PLAYER_STATE.get(player_id, "start")
+    node = TOM_TREE.get(state)
+    if not node:
+        raise HTTPException(500, "TurboTom state error.")
 
-    # Intent: Help/restart
-    if any(kw in dialogue for kw in ["help", "lost", "confused", "restart"]):
-        return "Step one: pick a chassis. Then engine, tires, and spoiler. I’ve got your back."
-
-    return "Hmm... I don’t quite follow. Try asking about your car parts or tell me if you’re done."
-
+    # if user reply matches an option label, advance
+    for label, next_state in node["options"].items():
+        if dialogue.strip().lower() == label.lower():
+            PLAYER_STATE[player_id] = next_state
+            node = TOM_TREE[next_state]
+            return node["npc"]
+    # fallback
+    return node["npc"]
