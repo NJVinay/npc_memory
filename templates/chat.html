@@ -1,357 +1,456 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>F1 Configurator + Dax Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
-        body {
-            background-image: url('/static/images/emptygaragewithtools.jpg');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+      body {
+        background-color: #000;
+      }
+
+      .dot {
+        animation: blink 1.2s infinite;
+        opacity: 0;
+      }
+
+      .dot:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 1;
         }
+      }
+
+      #chat-container {
+        height: 100vh;
+        display: none; /* Reveal only after “Talk to Dax” */
+      }
+
+      /* Fix the two‐column layout so it never overflows horizontally */
+      #chat-container .flex {
+        height: 100%;
+        overflow: hidden; /* Prevent children from creating horizontal scrollbars */
+      }
+
+      #chat-panel-wrapper.minimized {
+        height: 40px;            /* just show a thin bar */
+        overflow: hidden;        /* hide all inner chat content */
+        cursor: pointer;         /* so the user knows it’s clickable to expand */
+      }
+      /* Optionally adjust the header row so it still stays visible: */
+      #chat-panel-wrapper.minimized > .flex {
+        display: none;           /* hides the chat bubbles, input form, etc. */
+      }
+      /* Make sure the header (avatar + buttons row) is still visible when minimized: */
+      #chat-panel-wrapper.minimized .items-center {
+        display: flex;
+        align-items: center;
+        height: 40px;            /* match your minimized bar height */
+      }
+
+      /* Scrollbar styling (optional) */
+      #sidebar-buttons::-webkit-scrollbar,
+      #chat-log::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      #sidebar-buttons::-webkit-scrollbar-thumb,
+      #chat-log::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+      }
     </style>
-</head>
+  </head>
 
-<body class="text-white h-screen overflow-hidden font-sans">
-    <div class="flex h-screen">
-        <!-- Part Selection Panel -->
-        <div class="w-[360px] bg-black bg-opacity-70 p-6 overflow-y-auto">
-            <h2 class="text-2xl font-bold mb-6 text-yellow-400">Configuration</h2>
-            <div class="space-y-4" id="sidebar-buttons">
-                <div>
-                    <button onclick="toggleSection('chassis')"
-                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Chassis</button>
-                    <div id="group-chassis" class="hidden mt-2"></div>
-                </div>
-                <div>
-                    <button onclick="toggleSection('engine')"
-                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Engine</button>
-                    <div id="group-engine" class="hidden mt-2"></div>
-                </div>
-                <div>
-                    <button onclick="toggleSection('tires')"
-                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Tires</button>
-                    <div id="group-tires" class="hidden mt-2"></div>
-                </div>
-                <div>
-                    <button onclick="toggleSection('frontWing')"
-                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Front Wing</button>
-                    <div id="group-frontWing" class="hidden mt-2"></div>
-                </div>
-                <div>
-                    <button onclick="toggleSection('rearWing')"
-                        class="w-full text-left text-white py-2 px-3 rounded bg-gray-800 hover:bg-gray-700 transition">Rear Wing</button>
-                    <div id="group-rearWing" class="hidden mt-2"></div>
-                </div>
-            
-                <div class="mt-6 text-sm text-gray-300">
-                    <p><span class="font-bold">Your Build:</span></p>
-                    <p>Chassis: <span id="summary-chassis">None</span></p>
-                    <p>Engine: <span id="summary-engine">None</span></p>
-                    <p>Tires: <span id="summary-tires">None</span></p>
-                    <p>Front Wing: <span id="summary-frontWing">None</span></p>
-                    <p>Rear Wing: <span id="summary-rearWing">None</span></p>
-                </div>
-            </div>
-                    
-        </div>        
-
-        <!-- Car Preview Area -->
-        <div class="w-2/3 flex justify-center items-center relative">
-            <img id="car-preview" class="max-h-[90%] object-contain" src="/static/images/32_cars/Car01_E1_T1_C1_F1_R1.png" />
-        </div>
-        <div id="car-info" class="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded text-sm space-y-1">
-            <p id="part-labels" class="font-bold text-yellow-300"></p>
-            <div id="part-images" class="flex gap-4 mt-2"></div>
-        </div>
-        
+  <body class="text-white h-screen font-sans">
+    <div id="instruction-overlay" style="
+        position:fixed; top:0; left:0;
+        width:100%; height:100%;
+        background: rgba(0,0,0,0.85);
+        display:flex;  
+        justify-content:center; align-items:center;
+        z-index:1000;
+      ">
+      <div style="max-width:400px; text-align:center; color:white;">
+        <h2 class="text-3xl font-bold mb-4 text-white">Welcome to the F1 Garage</h2>
+        <p style="margin-bottom:2rem; font-size:1.1rem;">
+          Click “Talk to Dax” to begin. Dax will greet you and guide you through building a racecar.
+        </p>
+        <button id="talk-dax-btn" style="
+            padding:0.75rem 1.5rem;
+            background-color:#ffcc00;
+            color:#111;
+            border:none;
+            border-radius:0.5rem;
+            font-size:1rem;
+            cursor:pointer;
+          ">
+          Talk to Dax
+        </button>
+      </div>
     </div>
+    
+    <div id="chat-container" class="h-screen" style="display:none;">
+      <div class="flex h-full">
+        <!-- Part Selection Panel -->
+        <div id="sidebar-panel" class="flex-none w-72 bg-black bg-opacity-70 p-6 flex flex-col">
+          <h2 class="text-2xl font-bold mb-6 text-yellow-400">Configuration</h2>
+          <div class="space-y-4 overflow-y-auto" id="sidebar-buttons">
+            <div>
+              <h3 class="text-yellow-300 text-lg font-bold mb-2">Chassis</h3>
+              <div id="group-chassis" class="grid grid-cols-2 gap-4 mb-4"></div>
+            </div>
+            <div>
+              <h3 class="text-yellow-300 text-lg font-bold mb-2">Engine</h3>
+              <div id="group-engine" class="grid grid-cols-2 gap-4 mb-4"></div>
+            </div>
+            <div>
+              <h3 class="text-yellow-300 text-lg font-bold mb-2">Tires</h3>
+              <div id="group-tires" class="grid grid-cols-2 gap-4 mb-4"></div>
+            </div>
+            <div>
+              <h3 class="text-yellow-300 text-lg font-bold mb-2">Front Wing</h3>
+              <div id="group-frontWing" class="grid grid-cols-2 gap-4 mb-4"></div>
+            </div>
+            <div>
+              <h3 class="text-yellow-300 text-lg font-bold mb-2">Rear Wing</h3>
+              <div id="group-rearWing" class="grid grid-cols-2 gap-4 mb-4"></div>
+            </div>
+          </div>
 
+          <!-- Build Summary -->
+          <div class="mt-6 text-white text-sm">
+            <p><strong>Your Build:</strong></p>
+            <p>Chassis: <span id="summary-chassis">None</span></p>
+            <p>Engine: <span id="summary-engine">None</span></p>
+            <p>Tires: <span id="summary-tires">None</span></p>
+            <p>Front Wing: <span id="summary-frontWing">None</span></p>
+            <p>Rear Wing: <span id="summary-rearWing">None</span></p>
+          </div>
+
+          <!-- Guide Box -->
+          <div class="mt-auto text-sm text-gray-300">
+            <div class="bg-yellow-200 text-black p-2 rounded">
+              <strong>Steps to follow:</strong><br>
+              1. Ask your engineer about chassis.<br>
+              2. Choose a part when prompted.<br>
+              3. Repeat until your car is complete.
+            </div>
+          </div>
+
+          <a href="/evaluation?player_id={{ selected_player_id }}"
+            class="mt-4 block w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-center">
+            Submit Feedback
+          </a>
+          
+        </div>
+    
+        <!-- Car Preview Area -->
+        <div class="flex-1 flex justify-center items-center relative">
+          <img id="car-preview" class="w-full h-full object-cover" src="/static/images/32_cars/E1_T1_C1_F1_R1.png"/>
+        </div>
+      </div>
+    </div>
+    
     <!-- Dax Chat Assistant -->
     <div
-        class="fixed bottom-6 right-6 w-96 h-[500px] bg-black bg-opacity-70 backdrop-blur-md rounded-xl shadow-lg flex flex-col p-4 z-50">
-        <div class="flex items-center mb-2">
-            <img src="/static/images/instructors/dax.png" alt="Dax" class="w-10 h-10 rounded-full mr-2" />
-            <span class="text-green-300 font-semibold">Dax</span>
+      id="chat-panel-wrapper"
+      class="fixed bottom-4 right-16 bg-black bg-opacity-20 backdrop-blur-md rounded-xl shadow-lg flex flex-col p-4 z-50 w-96 max-w-md max-h-[80vh] overflow-hidden">
+      <div class="flex items-center mb-2 flex-shrink-0">
+        <img src="/static/images/instructors/dax.png" alt="Dax" class="w-10 h-10 rounded-full mr-2"/>
+        <span class="text-green-300 font-semibold">Dax</span>
+        <span class="ml-2 text-gray-400 text-sm">Your AI Engineer</span>
+        <span class="ml-auto text-gray-500 text-xs">v1.0</span>
+        <span class="ml-2 text-yellow-400 text-xs">Ready to assist</span>
+        <button id="minimize-btn" class="absolute right-12 top-2 text-white text-sm">➖</button>
+        <button id="maximize-btn" class="absolute right-7 top-2 text-white text-sm">↖️</button>
+      </div>
+
+      <div id="chat-log" class="flex-1 overflow-y-auto space-y-2  pr-2">
+        {% for msg in chat_history %}
+        <div class="p-2 rounded bg-gray-700 max-w-[80%] self-end text-right">
+          <strong>You:</strong> {{ msg.dialogue }}
         </div>
-        <div id="chat-log" class="flex-1 overflow-y-auto space-y-2">
-            <script>
-                window.addEventListener("DOMContentLoaded", () => {
-                    addMessage("npc", "Welcome racer! I'm Dax — your engineer. Ask anything or start selecting parts.");
-                });
-            </script>
+        <div class="p-2 rounded bg-green-900 max-w-[80%] self-start">
+          <strong>Dax:</strong> {{ msg.npc_reply }}
         </div>
-        <form onsubmit="return sendToDax(event)" class="mt-3 flex">
-            <input id="player_input" type="text" placeholder="Ask Dax..."
-                class="flex-1 p-2 rounded-l bg-gray-800 text-white border border-gray-600" />
-            <button class="px-4 bg-yellow-400 text-black font-bold rounded-r">Send</button>
-        </form>
+        {% endfor %}
+      </div>
+
+      <form id="chat-form" onsubmit="return sendToDax(event)" class="mt-3 flex-shrink-0">
+        <input id="player_input" name="dialogue" type="text" placeholder="Ask Dax..."
+          class="flex-1 p-2 rounded-l bg-gray-800 text-white border border-gray-600"/>
+        <button class="px-4 bg-yellow-400 text-black font-bold rounded-r">Send</button>
+      </form>
     </div>
 
     <script>
+      const readableLabels = {
+        "2004_v10_Engine": "2004 V10",
+        "2006_v8_Engine": "2006 V8",
+        "C5_Slick_Tire": "C5 Slick",
+        "Full_Wet_Tire": "Full Wet",
+        "Standard_Monocoque_Chassis": "Standard Monocoque",
+        "GroundEffectOptimized_Monocoque_Chassis": "Ground Effect Optimized",
+        "High_Lift_FrontWing": "High Lift",
+        "Simple_Outwash_FrontWing": "Simple Outwash",
+        "High_Downforce_RearWing": "High Downforce",
+        "Low_Drag_RearWing": "Low Drag",
+      };
 
-        const readableLabels = {
-                "2004_v10_Engine": "2004 V10",
-                "2006_v8_Engine": "2006 V8",
-                "C5_Slick_Tire": "C5 Slick",
-                "Full_Wet_Tire": "Full Wet",
-                "Standard_Monocoque_Chassis": "Standard Monocoque",
-                "GroundEffectOptimized_Monocoque_Chassis": "Ground Effect Optimized",
-                "High_Lift_FrontWing": "High Lift",
-                "Simple_Outwash_FrontWing": "Simple Outwash",
-                "High_Downforce_RearWing": "High Downforce",
-                "Low_Drag_RearWing": "Low Drag"
-        };
+      const playerId = localStorage.getItem("player_id");
+      if (!playerId) {
+        alert("Please login first.");
+        window.location.href = "/login";
+      }
 
-        const PARTS = {
-            E1: { label: "2004 V10 Engine", file: "2004_v10_Engine.png" },
-            E2: { label: "2006 V8 Engine", file: "2006_v8_Engine.png" },
-            T1: { label: "C5 Slick Tire", file: "C5_Slick_Tire.png" },
-            T2: { label: "Full Wet Tire", file: "Full_Wet_Tire.png" },
-            C1: { label: "Standard Monocoque Chassis", file: "Standard_Monocoque_Chassis.png" },
-            C2: { label: "Ground Effect Optimized Chassis", file: "GroundEffectOptimized_Monocoque_Chassis.png" },
-            F1: { label: "High Lift Front Wing", file: "High_Lift_FrontWing.png" },
-            F2: { label: "Simple Outwash Front Wing", file: "Simple_Outwash_FrontWing.png" },
-            R1: { label: "High Downforce Rear Wing", file: "High_Downforce_RearWing.png" },
-            R2: { label: "Low Drag Rear Wing", file: "Low_Drag_RearWing.png" }
-        };
+      const selectedParts = {
+        chassis: null,
+        engine: null,
+        tires: null,
+        frontWing: null,
+        rearWing: null,
+      };
+      const partData = {
+        chassis: [
+          "Standard_Monocoque_Chassis",
+          "GroundEffectOptimized_Monocoque_Chassis",
+        ],
+        engine: ["2004_v10_Engine", "2006_v8_Engine"],
+        tires: ["C5_Slick_Tire", "Full_Wet_Tire"],
+        frontWing: ["High_Lift_FrontWing", "Simple_Outwash_FrontWing"],
+        rearWing: ["High_Downforce_RearWing", "Low_Drag_RearWing"],
+      };
 
-        // List all car image filenames you have
-        const CAR_IMAGES = [
-            "Car01_E1_T1_C1_F1_R1.png",
-            "Car02_E1_T1_C1_F1_R2.png",
-            "Car03_E1_T1_C1_F2_R1.png",
-            "Car04_E1_T1_C1_F2_R2.png",
-            "Car05_E1_T1_C2_F1_R1.png",
-            "Car06_E1_T1_C2_F1_R2.png",
-            "Car07_E1_T1_C2_F2_R1.png",
-            "Car08_E1_T1_C2_F2_R2.png",
-            "Car09_E1_T2_C1_F1_R1.png",
-            "Car10_E1_T2_C1_F1_R2.png",
-            "Car11_E1_T2_C1_F2_R1.png",
-            "Car12_E1_T2_C1_F2_R2.png",
-            "Car13_E1_T2_C2_F1_R1.png",
-            "Car14_E1_T2_C2_F1_R2.png",
-            "Car15_E1_T2_C2_F2_R1.png",
-            "Car16_E1_T2_C2_F2_R2.png",
-            "Car17_E2_T1_C1_F1_R1.png",
-            "Car18_E2_T1_C1_F1_R2.png",
-            "Car19_E2_T1_C1_F2_R1.png",
-            "Car20_E2_T1_C1_F2_R2.png",
-            "Car21_E2_T1_C2_F1_R1.png",
-            "Car22_E2_T1_C2_F1_R2.png",
-            "Car23_E2_T1_C2_F2_R1.png",
-            "Car24_E2_T1_C2_F2_R2.png",
-            "Car25_E2_T2_C1_F1_R1.png",
-            "Car26_E2_T2_C1_F1_R2.png",
-            "Car27_E2_T2_C1_F2_R1.png",
-            "Car28_E2_T2_C1_F2_R2.png",
-            "Car29_E2_T2_C2_F1_R1.png",
-            "Car30_E2_T2_C2_F1_R2.png",
-            "Car31_E2_T2_C2_F2_R1.png",
-            "Car32_E2_T2_C2_F2_R2.png"
-        ];
+      function createPartCards() {
+        Object.keys(partData).forEach((category) => {
+          const groupContainer = document.getElementById(`group-${category}`);
+          groupContainer.innerHTML = "";
 
-        function parseCarFilename(filename) {
-            const parts = filename.split("_");
-            const carId = parts[0];
-            return {
-                id: carId,
-                engine: PARTS[parts[1]],
-                tires: PARTS[parts[2]],
-                chassis: PARTS[parts[3]],
-                frontWing: PARTS[parts[4]],
-                rearWing: PARTS[parts[5]]
+          partData[category].forEach((part) => {
+            const card = document.createElement("div");
+            card.className =
+              "bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 cursor-pointer rounded p-3 text-center transition w-24";
+            card.innerHTML = `
+              <img src="/static/images/car_parts/${part}.png"
+                  class="w-20 h-20 object-contain mx-auto mb-2" />
+              <p>${readableLabels[part] || part}</p>`;
+            card.onclick = () => {
+              selectedParts[category] = part;
+
+              document
+                .querySelectorAll(`.selected-${category}`)
+                .forEach((c) =>
+                  c.classList.remove(
+                    `selected-${category}`,
+                    "border-yellow-400"
+                  )
+                );
+              card.classList.add(`selected-${category}`, "border-yellow-400");
+
+              updatePreview();
+              updateSummary();
+              sendToDaxSim(`I selected the ${part} for the ${category}.`);         
             };
-        }
-
-        function showPartPreview(filename) {
-                const parsed = parseCarFilename(filename);
-                const labelEl = document.getElementById("part-labels");
-                const imgRow = document.getElementById("part-images");
-
-                labelEl.textContent = `Car ${parsed.id} — ${parsed.engine.label}, ${parsed.tires.label}, ${parsed.chassis.label}, ${parsed.frontWing.label}, ${parsed.rearWing.label}`;
-
-                imgRow.innerHTML = ""; // Clear previous
-                [parsed.engine, parsed.tires, parsed.chassis, parsed.frontWing].forEach(part => {
-                    const img = document.createElement("img");
-                    img.src = `/static/images/car_parts/${part.file}`;
-                    img.alt = part.label;
-                    img.className = "w-16 h-16 object-contain rounded bg-gray-900 border border-gray-700";
-                    img.title = part.label;
-                    imgRow.appendChild(img);
-                });
-        }
-
-
-        function toggleSection(category) {
-            const el = document.getElementById(`group-${category}`);
-            el.classList.toggle("hidden");
-        }
-
-        const playerId = localStorage.getItem("player_id");
-        if (!playerId) {
-            alert("Please login first.");
-            window.location.href = "/login";
-        }
-
-        const selectedParts = { chassis: null, engine: null, tires: null, frontWing: null, rearWing: null };
-        const partData = {
-            chassis: ["Standard_Monocoque_Chassis", "GroundEffectOptimized_Monocoque_Chassis"],
-            engine: ["2004_v10_Engine", "2006_v8_Engine"],
-            tires: ["C5_Slick_Tire", "Full_Wet_Tire"],
-            frontWing: ["High_Lift_FrontWing", "Simple_Outwash_FrontWing"],
-            rearWing: ["High_Downforce_RearWing", "Low_Drag_RearWing"]
-        };
-
-        function createPartCards() {
-            Object.keys(partData).forEach(category => {
-                const groupContainer = document.getElementById(`group-${category}`);
-                groupContainer.innerHTML = "";
-
-                const row = document.createElement("div");
-                row.className = "flex gap-4 flex-wrap";
-
-                partData[category].forEach(part => {
-                    const card = document.createElement("div");
-                    card.className = "bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 cursor-pointer rounded p-3 text-center transition w-28";
-
-                    card.innerHTML = `
-                <img src="/static/images/car_parts/${part}.png" 
-                    class="w-20 h-20 object-contain mx-auto mb-2" />
-                <p>${readableLabels[part] || part}</p>`;
-
-                    card.onclick = () => {
-                        selectedParts[category] = part;
-
-                        // Remove highlights
-                        row.querySelectorAll("div").forEach(c => c.classList.remove("border-yellow-400"));
-                        card.classList.add("border-yellow-400");
-
-                        updatePreview();
-                        updateSummary();
-                        sendToDaxSim(`I selected the ${part} for the ${category}.`);
-                    };
-
-                    row.appendChild(card);
-                });
-
-                groupContainer.appendChild(row);
-            });
-        }
-            
-        function updateSummary() {
-            document.getElementById("summary-chassis").textContent = selectedParts.chassis || "None";
-            document.getElementById("summary-engine").textContent = selectedParts.engine || "None";
-            document.getElementById("summary-tires").textContent = selectedParts.tires || "None";
-            document.getElementById("summary-frontWing").textContent = selectedParts.frontWing || "None";
-            document.getElementById("summary-rearWing").textContent = selectedParts.rearWing || "None";
-        }
-
-        function getBuildCode() {
-            const partCodes = {
-                engine: { "2004_v10_Engine": "E1", "2006_v8_Engine": "E2" },
-                tires: { "C5_Slick_Tire": "T1", "Full_Wet_Tire": "T2" },
-                chassis: { "Standard_Monocoque_Chassis": "C1", "GroundEffectOptimized_Monocoque_Chassis": "C2" },
-                frontWing: { "High_Lift_FrontWing": "F1", "Simple_Outwash_FrontWing": "F2" },
-                rearWing: { "High_Downforce_RearWing": "R1", "Low_Drag_RearWing": "R2" }
-            };
-
-            if (!selectedParts.engine || !selectedParts.tires || !selectedParts.chassis || !selectedParts.frontWing || !selectedParts.rearWing)
-                return null;
-
-            return `E${partCodes.engine[selectedParts.engine].slice(1)}_T${partCodes.tires[selectedParts.tires].slice(1)}_C${partCodes.chassis[selectedParts.chassis].slice(1)}_F${partCodes.frontWing[selectedParts.frontWing].slice(1)}_R${partCodes.rearWing[selectedParts.rearWing].slice(1)}`;
-        }
-
-        function updatePreview() {
-            if (!selectedParts.engine || !selectedParts.tires || !selectedParts.chassis || !selectedParts.frontWing || !selectedParts.rearWing) {
-                document.getElementById("car-preview").src = "/static/images/32_cars/Car01_E1_T1_C1_F1_R1.png";
-                return;
-            }
-
-            const partCodes = {
-                engine: { "2004_v10_Engine": "E1", "2006_v8_Engine": "E2" },
-                tires: { "C5_Slick_Tire": "T1", "Full_Wet_Tire": "T2" },
-                chassis: { "Standard_Monocoque_Chassis": "C1", "GroundEffectOptimized_Monocoque_Chassis": "C2" },
-                frontWing: { "High_Lift_FrontWing": "F1", "Simple_Outwash_FrontWing": "F2" },
-                rearWing: { "High_Downforce_RearWing": "R1", "Low_Drag_RearWing": "R2" }
-            };
-
-            const code = [
-                partCodes.engine[selectedParts.engine],
-                partCodes.tires[selectedParts.tires],
-                partCodes.chassis[selectedParts.chassis],
-                partCodes.frontWing[selectedParts.frontWing],
-                partCodes.rearWing[selectedParts.rearWing]
-            ].join("_");
-
-            const match = CAR_IMAGES.find(name => name.includes(`_${code}.png`));
-            if (!match) {
-                console.warn("No matching image found for:", code);
-            }
-
-            const path = match ? `/static/images/32_cars/${match}` : "/static/images/32_cars/Car01_E1_T1_C1_F1_R1.png";
-            document.getElementById("car-preview").src = path;
-        }
-
-        function capitalize(word) {
-            return word.charAt(0).toUpperCase() + word.slice(1);
-        }
-
-        function addMessage(role, text) {
-            const chat = document.getElementById("chat-log");
-            const div = document.createElement("div");
-            div.className = `p-2 rounded ${role === 'player' ? 'bg-gray-700 self-end text-right' : 'bg-green-900 self-start'} max-w-[80%]`;
-            div.innerHTML = `<strong>${role === 'player' ? 'You' : 'Dax'}:</strong> ${text}`;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-        async function sendToDax(event) {
-            event.preventDefault();
-            const input = document.getElementById("player_input");
-            const message = input.value.trim();
-            if (!message) return;
-            addMessage("player", message);
-            input.value = "";
-            sendToDaxSim(message);
-        }
-
-        async function sendToDaxSim(text) {
-            const formData = new FormData();
-            formData.append("player_id", playerId);
-            formData.append("npc_id", 1);
-            formData.append("dialogue", text);
-
-            const bubble = document.createElement("div");
-            bubble.className = "p-2 rounded bg-green-900 max-w-[80%]";
-            bubble.id = "thinking-bubble";
-            bubble.innerHTML = "<strong>Dax:</strong> ...";
-            document.getElementById("chat-log").appendChild(bubble);
-
-            try {
-                const res = await fetch("/chat_api", { method: "POST", body: formData });
-                const data = await res.json();
-                document.getElementById("thinking-bubble")?.remove();
-                addMessage("npc", data.npc_reply?.trim() || "⚠️ I didn't catch that.");
-            } catch (err) {
-                console.error(err);
-                document.getElementById("thinking-bubble")?.remove();
-                addMessage("npc", "⚠️ Connection error. Try again later.");
-            }
-        }
-
-        window.addEventListener("DOMContentLoaded", () => {
-            createPartCards();
-            updateSummary();
+            groupContainer.appendChild(card);                      
+          });
         });
+      }
 
-    </script>
-</body>
+      function updateSummary() {
+        const parts = ["chassis","engine","tires","frontWing","rearWing"];
 
+        parts.forEach((slot) => {
+          const span = document.getElementById(`summary-${slot}`);
+          if (!span) return;  // in case the HTML isn’t rendered yet
+          span.textContent = readableLabels[selectedParts[slot]] || "None";
+        });
+      }
+
+      function updatePreview() {
+        const preview = document.getElementById("car-preview");
+        const partCodes = {
+          engine: { "2004_v10_Engine": "E1", "2006_v8_Engine": "E2" },
+          tires:  { C5_Slick_Tire: "T1",   Full_Wet_Tire: "T2" },
+          chassis:{
+            Standard_Monocoque_Chassis:             "C1",
+            GroundEffectOptimized_Monocoque_Chassis:"C2",
+          },
+          frontWing:{
+            High_Lift_FrontWing:      "F1",
+            Simple_Outwash_FrontWing: "F2",
+          },
+          rearWing:{
+            High_Downforce_RearWing: "R1",
+            Low_Drag_RearWing:       "R2",
+          },
+        };
+
+        // Build each segment, falling back to "1" if that part hasn't been chosen yet:
+        const code = [
+          partCodes.engine[   selectedParts.engine   ] || "E1",
+          partCodes.tires[    selectedParts.tires    ] || "T1",
+          partCodes.chassis[  selectedParts.chassis  ] || "C1",
+          partCodes.frontWing[selectedParts.frontWing] || "F1",
+          partCodes.rearWing[ selectedParts.rearWing ] || "R1",
+        ].join("_");
+
+        // Fire up the matching PNG every time:
+        preview.src = `/static/images/32_cars/${code}.png`;
+        if (
+          selectedParts.engine &&
+          selectedParts.tires &&
+          selectedParts.chassis &&
+          selectedParts.frontWing &&
+          selectedParts.rearWing
+        ) {
+          document.getElementById("sidebar-panel");
+          document.getElementById("car-preview")
+            .classList.replace("object-contain", "object-cover");
+        }
+      }
+
+      function addMessage(role, text) {
+        const chat = document.getElementById("chat-log");
+        const div = document.createElement("div");
+        div.className = `p-2 rounded ${
+          role === "player"
+            ? "bg-gray-700 self-end text-right"
+            : "bg-green-900 self-start"
+        } max-w-[80%]`;
+        div.innerHTML = `<strong>${
+          role === "player" ? "You" : "Dax"
+        }:</strong> ${text}`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      async function sendToDax(event) {
+        event.preventDefault();
+        const input = document.getElementById("player_input");
+        const message = input.value.trim();
+        if (!message) return;
+        addMessage("player", message);
+        input.value = "";
+        sendToDaxSim(message);
+      }
+
+      let lastPlayerMessage = "";
+
+      async function sendToDaxSim(text, isRetry = false) {
+        lastPlayerMessage = text;
+
+        const chatLog = document.getElementById("chat-log");
+        const bubble = document.createElement("div");
+        bubble.className = "p-2 rounded bg-green-900 max-w-[80%]";
+        bubble.id = "thinking-bubble";
+        bubble.innerHTML = `<strong>Dax:</strong> <span id="dax-loader">thinking<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span>`;
+        chatLog.appendChild(bubble);
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+        try {
+          const res = await fetch("/chat_api", {
+            method: "POST",
+            body: new URLSearchParams({
+              player_id: localStorage.getItem("player_id"),
+              npc_id: 1,
+              dialogue: text,
+            }),
+          });
+          const raw = await res.text();
+          console.log("Raw LLM Response:", raw);
+          document.getElementById("thinking-bubble")?.remove();
+
+          let data = {};
+          try {
+            data = JSON.parse(raw.trim());
+            addMessage("npc", data.response || data.npc_reply || "⚠️ No reply.");
+          } catch (err) {
+            console.error("JSON parse failed:", err);
+            addMessage("npc", "⚠️ Failed to parse response.");
+            return;
+          }
+        } catch (err) {
+          document.getElementById("thinking-bubble")?.remove();
+
+          const retryBubble = document.createElement("div");
+          retryBubble.className =
+            "p-2 rounded bg-red-900 max-w-[80%] cursor-pointer hover:opacity-80";
+          retryBubble.innerHTML = `<strong>Dax:</strong> ⚠️ Connection error. <u>Click to retry</u>`;
+          retryBubble.onclick = () => sendToDaxSim(lastPlayerMessage, true);
+          chatLog.appendChild(retryBubble);
+          chatLog.scrollTop = chatLog.scrollHeight;
+        }
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        const chatLogEl = document.getElementById("chat-log");
+        if (chatLogEl) chatLogEl.scrollTop = chatLogEl.scrollHeight;
+        createPartCards();
+        updateSummary();
+      });
+
+      const rawChatCount = "{{ chat_history|length }}";
+      const rawPlayerName = "{{ player_name }}";
+      const chatCountNumber = parseInt(rawChatCount, 10) || 0
+
+      const hasHistory = chatCountNumber > 0;
+      const greetingText = hasHistory
+        ? `Hey ${rawPlayerName}, good to see you again!`
+        : `Hey ${rawPlayerName}! I’m Dax, your race engineer. How can I help today?`;
+
+      // “Talk to Dax” click handler
+      document.getElementById("talk-dax-btn").onclick = () => {
+        const overlay = document.getElementById("instruction-overlay");
+        const chatCont = document.getElementById("chat-container");
+        const daxPanel = document.getElementById("chat-panel-wrapper");
+      
+        // Fade out the overlay
+        gsap.to(overlay, {
+          opacity: 0,
+          duration: 0.8,
+          onComplete: () => {
+            overlay.style.display = "none";
+          }
+        });
+      
+        // Reveal and fade in the chat area
+        chatCont.style.display = "block";
+        gsap.from(chatCont, { opacity: 0, y: 20, duration: 0.6 });
+
+        daxPanel.classList.remove("hidden");
+        gsap.from(daxPanel, { 
+          opacity: 0, y: 20, duration: 0.4,
+          onComplete: () => {
+            const log = document.getElementById("chat-log");
+            log.scrollTop = log.scrollHeight;
+          }
+        });
+        
+        addMessage("npc", greetingText);
+      };
+
+      document.getElementById("minimize-btn").onclick = () => {
+          const daxPanel = document.getElementById("chat-panel-wrapper");
+          daxPanel.classList.toggle("minimized");
+      };
+
+      document.getElementById("maximize-btn").onclick = () => {
+          const daxPanel = document.getElementById("chat-panel-wrapper");
+          daxPanel.classList.remove("minimized");
+        gsap.from(daxPanel, { opacity: 0, y: 20, duration: 0.4 });
+      };
+    </script>    
+  </body>
 </html>

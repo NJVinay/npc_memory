@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from turbotom import turbotom_response
-import os, json, hashlib
+import os, json, hashlib, time, random
 from uuid import UUID, uuid4
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
@@ -59,9 +59,11 @@ def login_page_redirect(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/cover", response_class=HTMLResponse)
-def cover_page(request: Request, username: str=None, db: Session = Depends(get_db)):
-    players = db.query(Player).all()
-    return templates.TemplateResponse("cover.html", {"request": request, "players": players, "selected_player_id": None})
+def cover_page(request: Request, player_id: int = Query(...), db: Session = Depends(get_db)):
+    return templates.TemplateResponse("cover.html", {
+        "request": request,
+        "player_id": player_id
+    })
 
 #  Store a new NPC interaction with duplicate check
 @app.post("/store_interaction/", response_model=NPCMemoryResponse, description="Player sends dialogue only. Sentiment is auto-analyzed and NPC reply is generated.", tags=["Create"])
@@ -203,13 +205,13 @@ def get_chat(request: Request, player_id: int = Query(default=None), db: Session
     if latest_build:
         intro_message = f"Welcome back! I see your current build includes a {latest_build.engine} engine and {latest_build.tires} tires. Need any tweaks?"
 
-    return templates.TemplateResponse("chat.html", 
-                                      {"request": request,
-                                        "players": players,
-                                        "selected_player_id": player_id,
-                                        "chat_history": chat_history,
-                                        "intro_message": intro_message
-                                        })
+    return templates.TemplateResponse("chat.html", {
+        "request": request,
+        "players": players,
+        "selected_player_id": player_id,
+        "chat_history": chat_history,
+        "intro_message": intro_message
+    })
 
 @app.post("/chat", response_class=HTMLResponse)
 def post_chat(
@@ -285,11 +287,18 @@ async def chat_api(
     )
     context = list(reversed(history))
 
+    start = time.time()
     sentiment = analyze_sentiment(dialogue)
-    player_name = db.query(Player).filter(Player.id == player_id).first().name
+    print("Sentiment analysis took:", round(time.time() - start, 2), "s")
+    player_obj = db.query(Player).filter(Player.id == player_id).first()
+    player_name = player_obj.display_name or player_obj.name
     build = get_latest_build(player_id, db)
+    llm_start = time.time()
     npc_reply = generate_npc_response(dialogue, sentiment, player_id, context, player_name, build=build)
-
+    llm_duration = round(time.time() - llm_start, 2)
+    print(f"⏱️ LLM generation took: {llm_duration}s")
+    
+    commit_start = time.time()
     memory = NPCMemory(
         player_id=player_id,
         npc_id=1,
@@ -298,11 +307,15 @@ async def chat_api(
         npc_reply=npc_reply,
         npc_sentiment=analyze_sentiment(npc_reply)
     )
-
     db.add(memory)
-        
+    db.commit()
+    print("🗃️ DB commit took:", round(time.time() - commit_start, 2), "s")
+
     try:
-        db.commit()
+        db_commit_start = time.time()
+        db_duration = round(time.time() - db_commit_start, 2)
+        print(f"🗃️ DB commit took: {db_duration}s")
+
     except Exception as e:
         db.rollback()
         print("DB commit error (chat_api): ", e)
@@ -310,8 +323,9 @@ async def chat_api(
 
     return JSONResponse(content={
         "player_dialogue": dialogue,
-        "npc_reply": npc_reply
-    })
+        "npc_reply": npc_reply["response"] if isinstance(npc_reply, dict) else str(npc_reply)
+        })
+    
 
 @app.get("/create_player_form", response_class=HTMLResponse)
 def player_form(request: Request):
@@ -327,7 +341,7 @@ def create_player_from_form(
     new_uuid = str(uuid4())
     hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
 
-    new_player = Player(name=new_uuid, role=hashed_pin)
+    new_player = Player(name=new_uuid, role=hashed_pin, display_name=name)
     db.add(new_player)
     db.commit()
     db.refresh(new_player)
@@ -415,6 +429,13 @@ def get_latest_build(player_id: int, db: Session): #Most recent build (for chat 
     )
     return build
 
+@app.get("/start_chat")
+def start_chat(player_id: int = Query(...), db: Session = Depends(get_db)):
+    npc = random.choice(["dax", "static"])
+    if npc == "dax":
+        return RedirectResponse(f"/chat?player_id={player_id}")
+    return RedirectResponse(f"/chat_static?player_id={player_id}")
+
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -437,7 +458,3 @@ def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     return {"player_id": player.id}
-
-@app.get("/chat_cover", response_class=HTMLResponse)
-async def get_cover_page(request: Request):
-    return templates.TemplateResponse("chat_cover.html", {"request": request})

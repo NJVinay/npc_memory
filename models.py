@@ -17,9 +17,10 @@ class NPCMemory(Base):
 class Player(Base):
     __tablename__ = "players"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    name = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, nullable=True)
     role = Column(String, default="player")
+    display_name = Column(String, nullable=True)  # NEW: stores human-readable name
 
 class CarBuild(Base):
     __tablename__ = "car_builds"
