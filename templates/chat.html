@@ -74,32 +74,20 @@
   </head>
 
   <body class="text-white h-screen font-sans">
-    <div id="instruction-overlay" style="
-        position:fixed; top:0; left:0;
-        width:100%; height:100%;
-        background: rgba(0,0,0,0.85);
-        display:flex;  
-        justify-content:center; align-items:center;
-        z-index:1000;
-      ">
-      <div style="max-width:400px; text-align:center; color:white;">
-        <h2 class="text-3xl font-bold mb-4 text-white">Welcome to the F1 Garage</h2>
-        <p style="margin-bottom:2rem; font-size:1.1rem;">
-          Click “Talk to Dax” to begin. Dax will greet you and guide you through building a racecar.
-        </p>
-        <button id="talk-dax-btn" style="
-            padding:0.75rem 1.5rem;
-            background-color:#ffcc00;
-            color:#111;
-            border:none;
-            border-radius:0.5rem;
-            font-size:1rem;
-            cursor:pointer;
-          ">
-          Talk to Dax
-        </button>
-      </div>
+    <div id="instruction-overlay"
+      class="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center text-center p-6">
+      <h2 class="text-4xl font-bold text-white mb-4">
+        Hello there, welcome to the F1 Garage!
+      </h2>
+      <p class="text-lg text-gray-300 mb-8">
+        Meet your race engineer, Dax.
+      </p>
+      <button id="talk-dax-btn"
+        class="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3 px-8 rounded-lg shadow-lg">
+        Talk to Dax
+      </button>
     </div>
+
     
     <div id="chat-container" class="h-screen" style="display:none;">
       <div class="flex h-full">
@@ -129,7 +117,7 @@
             </div>
           </div>
 
-          <!-- Build Summary -->
+          <!-- Build Summary 
           <div class="mt-6 text-white text-sm">
             <p><strong>Your Build:</strong></p>
             <p>Chassis: <span id="summary-chassis">None</span></p>
@@ -137,7 +125,7 @@
             <p>Tires: <span id="summary-tires">None</span></p>
             <p>Front Wing: <span id="summary-frontWing">None</span></p>
             <p>Rear Wing: <span id="summary-rearWing">None</span></p>
-          </div>
+          </div> -->
 
           <!-- Guide Box -->
           <div class="mt-auto text-sm text-gray-300">
@@ -166,16 +154,16 @@
     <!-- Dax Chat Assistant -->
     <div
       id="chat-panel-wrapper"
-      class="hidden fixed bottom-4 right-4 bg-transparent border border-gray-600 rounded-xl shadow-lg flex flex-col p-3 z-50 w-64 max-h-[80vh] overflow-hidden">
+      class="hidden fixed bottom-4 right-4 bg-transparent border border-gray-600 rounded-xl shadow-lg flex flex-col p-3 z-50 w-64 max-h-[80vh] overflowx-hidden overflow-y-auto">
       <div class="flex items-center mb-1 flex-shrink-0 space-x-2">
-        <img src="/static/images/instructors/dax.png" alt="Dax" class="w-10 h-10 rounded-full mr-2"/>
+        <img src="/static/images/instructors/daxx.png" alt="Dax" class="w-10 h-10 rounded-full mr-2"/>
         <span class="text-green-300 font-semibold">Dax</span>
         <span class="ml-2 text-gray-400 text-sm">Your AI Engineer</span>
         <button id="minimize-btn" class="absolute right-12 top-2 text-white text-sm">➖</button>
         <button id="maximize-btn" class="absolute right-7 top-2 text-white text-sm">↖️</button>
       </div>
 
-      <div id="chat-log" class="flex-1 overflow-y-auto space-y-2  pr-2">
+      <div id="chat-log" class="flex-1 overflow-x-hidden overflow-y-auto space-y-2 pr-2">
         {% for msg in chat_history %}
         <div class="p-2 rounded bg-gray-700 max-w-[80%] self-end text-right">
           <strong>You:</strong> {{ msg.dialogue }}
@@ -399,8 +387,8 @@
         updateSummary();
       });
 
-      const rawChatCount = "{{ chat_history|length }}";
-      const rawPlayerName = "{{ player_name }}";
+      const rawChatCount = `{{ chat_history|length }}`;
+      const rawPlayerName = `{{ player_name }}`;
       const chatCountNumber = parseInt(rawChatCount, 10) || 0
 
       const hasHistory = chatCountNumber > 0;
@@ -438,7 +426,18 @@
         
         addMessage("npc", greetingText);
       };
+      gsap.from("#talk-dax-btn", {
+          scale: 0.9,
+          duration: 0.5,
+          ease: "back.out(1.7)",
+          paused: true,
+          onComplete() {
+            gsap.to(this.targets(), { scale: 1.0, duration: 0.3 });
+          }
+      });
 
+      document.getElementById("talk-dax-btn").addEventListener("mouseenter", () => gsap.restart("#talk-dax-btn"));
+        
       document.getElementById("minimize-btn").onclick = () => {
           const daxPanel = document.getElementById("chat-panel-wrapper");
           daxPanel.classList.toggle("minimized");
