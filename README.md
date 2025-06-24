@@ -104,7 +104,7 @@ uvicorn main:app --reload
 ```
 
 7. **Access Frontend:**
-- Open [http://localhost:8000/chat](http://localhost:8000/)
+- Open [http://localhost:8000/chat](http://localhost:8000/)  (Under Maintainence)
 
 ---
 
@@ -138,7 +138,7 @@ NPC Memory Project shows how **modern AI models + emotional context + database m
 # 🧠 Contact
 
 For questions, issues, or demo requests:  
-📧 Email: [your_email@example.com]  
+📧 Email: [jv5102003@gmail.com]  
 🔗 GitHub: [https://github.com/NJVinay](https://github.com/NJVinay)
 
 ---
