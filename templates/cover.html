@@ -1,52 +1,293 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>🏎️ F1 Academy HeadQuarters</title>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    </head>
+<html lang="en">
 
-    <body style=" 
-    background-image: url('/static/images/feedback_garage.jpg');
-    background-size: cover; 
-    background-position: center;
-    background-repeat: no-repeat;
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-    font-family: 'Orbitron', sans-serif;
-    color: white;">
+<head>
+    <meta charset="UTF-8" />
+    <title>🏎️ F1 Academy HeadQuarters</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://unpkg.com/lottie-web/build/lottie.min.js"></script>
 
-        <div id="tutorial-container" class="p-8 text-white text-center" style="position:relative; z-index:1; padding:2rem;">
-            <div class="step" style="opacity:0; transform: translateY(50px);">🏁 Welcome to the F1 Academy Garage</div>
-            <div class="step" style="opacity:0; transform: translateY(50px);">The year is 2025…</div>
-            <div class="step" style="opacity:0; transform: translateY(50px);">You’ll build your ultimate racecar.</div>
-            <div class="step" style="opacity:0; transform: translateY(50px);">Your engineer is a surprise!</div>
-            <button id="start-btn" style="margin-top:1rem; padding:0.75rem 1.5rem; background:#ffcc00; color:#111; border:none; border-radius:0.5rem; font-size:1rem; cursor:pointer;">🎮 Begin Your Challenge</button>
+    <style>
+        :root {
+            --zoom-duration: 30s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
+        }
+
+        /* full-screen Ken Burns */
+        #bg-image {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 110%;
+            height: 110%;
+            background: url('/static/images/base_chassis.jpeg') center/cover no-repeat;
+            filter: brightness(0.6) contrast(1.1) blur(8px);
+            transform: translate(-5%, -5%) scale(1);
+            animation: zoom var(--zoom-duration) ease-out forwards;
+            z-index: -2;
+        }
+
+        @keyframes zoom {
+            to {
+                transform: translate(0, 0) scale(1.1);
+            }
+        }
+
+        /* cinematic bars */
+        .bar {
+            position: fixed;
+            width: 100%;
+            height: 10%;
+            background: #000;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .top-bar {
+            top: 0
+        }
+
+        .bottom-bar {
+            bottom: 0
+        }
+
+        /* overlay + modal */
+        #tutorial-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            display: flex;            
+            align-items: center;
+            justify-content: center;
+            z-index: 90;
+            opacity: 1;
+        }
+
+        #tutorial-modal {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            min-height: 500px;
+            background: rgba(17, 17, 17, 0.95);
+            border: 2px solid #ffcc00;
+            border-radius: 12px;
+            max-width: 640px;
+            width: 90%;
+            padding: 2rem;
+            box-shadow: 0 0 30px #ffcc00;
+            position: relative;
+        }
+
+        /* steps + controls all in one place */
+        .step {
+            display: none;
+            margin-bottom: 1.3rem;
+            line-height: 1.4;
+            font-size: 1.3rem;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            width: 100%;
+            max-width: 90%;
+            margin: 0 auto;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        .controls {
+            margin-top: auto;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .controls button {
+            background: #ffcc00;
+            color: #111;
+            border: none;
+            padding: .75rem 1.25rem;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            box-shadow: 0 0 10px rgba(255, 204, 0, 0.6);
+            cursor: pointer;
+        }
+
+        .controls button:disabled {
+            opacity: .4;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        /* lottie */
+        #animation-container {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 1rem;
+        }
+
+        /* hide the screen-reader title */
+        .visually-hidden {
+            position: absolute !important;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+            margin: -1px;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- hero image -->
+    <div id="bg-image"></div>
+
+    <!-- restore the audio so `audio.paused` works -->
+    <audio id="bg-audio" src="/static/audio/engine_idle.mp3" loop></audio>
+
+    <!-- bars -->
+    <div class="bar top-bar"></div>
+    <div class="bar bottom-bar"></div>
+
+    <!-- tutorial -->
+    <div id="tutorial-overlay">
+        <div id="tutorial-modal" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+            <h2 id="tutorial-title" class="visually-hidden">
+                Welcome to the F1 Academy Garage Tutorial
+            </h2>
+            <div id="animation-container"></div>
+
+            <div class="step" data-text="🏁 Welcome to the F1 Academy Garage"></div>
+            <div class="step" data-text="The year is 2025… Formula 1 has evolved with cutting-edge tech and new challenges."></div>
+            <div class="step" data-text="You’ll build your ultimate racecar, part by part."></div>
+            <div class="step" data-text="You'll be randomly assigned to one of the best engineers out there."></div>
+            <div class="step" data-text="Ready to get started?"></div>
+
+            <div class="controls">
+                <button id="prev-btn" disabled>← Previous</button>
+                <button id="next-btn">Next →</button>
+            </div>
         </div>
+    </div>
 
-        <script>
-            document.addEventListener("DOMContentLoaded", () => {
-                document.getElementById("start-btn").onclick = () => {
-                    const pid = localStorage.getItem("player_id");
-                    if (!pid) return window.location.href = "/login";
-                    window.location.href = `/start_chat?player_id=${pid}`;
-                };
-                // GSAP animation
-                gsap.to(".step", {
-                    opacity: 1,
-                    y: 0,
-                    duration: 0.8,
-                    ease: "power2.out",
-                    stagger: 0.5
-                });
-                gsap.fromTo("#start-btn",
-                    { scale: 1 },
-                    { scale: 1.1, yoyo: true, repeat: -1, duration: 0.6 }
-                );
+    <script>
+        (() => {
+            console.log("▶️ cover.js init");
+
+            const TYPE_SPEED = 40;    // ms per char
+            const ZOOM_DURATION = '30s'; // synced w/ --zoom-duration
+
+            const audio = document.getElementById('bg-audio');
+            const overlay = document.getElementById('tutorial-overlay');
+            const modal = document.getElementById('tutorial-modal');
+            const steps = [...document.querySelectorAll('.step')];
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            let current = 0, typing;
+
+            console.log("Found steps:", steps.length);
+
+            // entrance animation + focus trap
+            gsap.to(overlay, { opacity: 1, duration: 0.8, ease: "power1.out" });
+            gsap.from(modal, {
+                opacity: 0, scale: 0.8, duration: 0.8, ease: "back.out(1.7)",
+                onComplete: () => {
+                    modal.setAttribute('tabindex', '-1');
+                    modal.focus();
+                }
             });
-        </script>   
-    </body>
+
+            modal.addEventListener('keydown', e => {
+                const focusable = modal.querySelectorAll('button');
+                const first = focusable[0], last = focusable[focusable.length - 1];
+                if (e.key === 'Tab') {
+                    if (e.shiftKey && document.activeElement === first) {
+                        e.preventDefault(); last.focus();
+                    } else if (!e.shiftKey && document.activeElement === last) {
+                        e.preventDefault(); first.focus();
+                    }
+                }
+                if (e.key === 'Escape') {
+                    gsap.to(overlay, { opacity: 0, duration: 0.4, onComplete: () => window.location.reload() });
+                }
+            });
+
+            // Lottie (won’t kill your script if missing)
+            try {
+                console.log("… loading Lottie");
+                lottie.loadAnimation({
+                    container: document.getElementById('animation-container'),
+                    path: '/static/animations/car_assembly.json',
+                    renderer: 'svg', loop: true, autoplay: true
+                });
+                console.log("✓ Lottie OK");
+            } catch (err) {
+                console.warn("⚠️ Lottie failed:", err);
+            }
+
+            // typewriter
+            function typeWriter(el, text, cb) {
+                let i = 0; el.textContent = '';
+                (function tick() {
+                    el.textContent += text.charAt(i++);
+                    if (i < text.length) typing = setTimeout(tick, TYPE_SPEED);
+                    else cb && cb();
+                })();
+            }
+
+            function showStep(idx) {
+                clearTimeout(typing);
+                steps.forEach((s, i) => s.classList.toggle('active', i === idx));
+                typeWriter(steps[idx], steps[idx].dataset.text);
+                prevBtn.disabled = (idx === 0);
+                nextBtn.textContent = (idx === steps.length - 1) ? "🎮 Begin" : "Next →";
+            }
+
+            prevBtn.addEventListener('click', () => showStep(--current));
+            nextBtn.addEventListener('click', () => {
+                if (audio && audio.paused) audio.play().catch(() => { });
+                if (current < steps.length - 1) showStep(++current);
+                else {
+                    gsap.to(overlay, {
+                        opacity: 0, duration: 0.6, onComplete: () => {
+                            const pid = localStorage.getItem('player_id');
+                            window.location.href = pid
+                                ? `/start_chat?player_id=${pid}`
+                                : '/login';
+                        }
+                    });
+                }
+            });
+
+            // kick off
+            document.documentElement.style.setProperty('--zoom-duration', ZOOM_DURATION);
+            showStep(current);
+            gsap.to(nextBtn, { scale: 1.05, repeat: -1, yoyo: true, ease: "sine.inOut", duration: 1.5, delay: 2 });
+
+        })();  // ← invoke IIFE
+    </script>
+</body>
+
 </html>
