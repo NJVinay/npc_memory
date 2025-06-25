@@ -1,0 +1,143 @@
+{# templates/base_audio.html #}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}F1 Academy{% endblock %}</title>
+
+    <!-- Your standard fonts / CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/main.css">
+
+    {% block head_extras %}{% endblock %}
+</head>
+
+<body>
+    {% block body_start %}{% endblock %}
+
+    <!-- ▶️ Global audio controls -->
+    <div id="audio-controls" style="
+    position: fixed; bottom: 1rem; left:50%; transform:translateX(-50%);
+    display: flex; align-items: center; gap: .75rem;
+    background: rgba(0,0,0,0.6); padding: .5rem 1rem;
+    border-radius: 8px; z-index: 1000;
+    ">
+        <button id="prev-track">⏮️</button>
+        <button id="play-pause">▶️</button>
+        <span id="track-name" style="min-width:8em; text-align:center;"></span>
+        <button id="next-track">⏭️</button>
+        <button id="mute-toggle">🔊</button>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    {% block body_end %}
+    <!-- Howler.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script>
+        ; (function () {
+            // ─── Playlist ───
+            const playlist = [
+                { name: "Pit-lane Pulse", src: "/static/music/Girls_Got_Rhythm.mp3" },
+                { name: "Engine Anthem", src: "/static/music/Highway_to_Hell.mp3" },
+                { name: "Full Throttle", src: "/static/music/Back_in_Black.mp3" },
+                { name: "Speedway Symphony", src: "/static/music/Black_Sabbath.mp3" },
+                { name: "Trackside Tunes", src: "/static/music/Gun_Show.mp3" },
+                { name: "Victory Lap", src: "/static/music/New_Element.mp3" },
+                { name: "Podium Party", src: "/static/music/Sledgehammer.mp3" },
+                { name: "Overtake Overture", src: "/static/music/Sledgehammer_V2.mp3" },
+            ];
+
+            // ─── Persisted state ───
+            let idx = +localStorage.getItem("f1_currentTrack") || 0;
+            let muted = localStorage.getItem("f1_muted") === "true";
+            let position = +localStorage.getItem("f1_trackPos") || 0;
+
+            // ─── Howl instance ───
+            let music = new Howl({
+                src: [playlist[idx].src],
+                html5: true,
+                loop: false,
+                volume: muted ? 0 : 0.25,
+                onend: nextTrack
+            });
+
+            // ─── UI refs ───
+            const btnPrev = document.getElementById("prev-track");
+            const btnPlay = document.getElementById("play-pause");
+            const btnNext = document.getElementById("next-track");
+            const btnMute = document.getElementById("mute-toggle");
+            const nameEl = document.getElementById("track-name");
+
+            // ─── Render UI ───
+            function render() {
+                nameEl.textContent = playlist[idx].name;
+                btnPlay.textContent = music.playing() ? "⏸️" : "▶️";
+                btnMute.textContent = muted ? "🔇" : "🔊";
+            }
+
+            // ─── Controls ───
+            btnPlay.onclick = () => {
+                if (music.playing()) music.pause();
+                else music.play();
+                render();
+            };
+            btnMute.onclick = () => {
+                muted = !muted;
+                localStorage.setItem("f1_muted", muted);
+                music.volume(muted ? 0 : 0.25);
+                render();
+            };
+
+            function loadTrack(newIdx, seek = 0) {
+                music.unload();
+                idx = (newIdx + playlist.length) % playlist.length;
+                localStorage.setItem("f1_currentTrack", idx);
+                music = new Howl({
+                    src: [playlist[idx].src],
+                    html5: true,
+                    loop: false,
+                    volume: muted ? 0 : 1,
+                    onend: nextTrack
+                });
+                music.play();
+                music.seek(seek);
+                render();
+            }
+
+            function nextTrack() { loadTrack(idx + 1); }
+            btnNext.onclick = () => loadTrack(idx + 1);
+            btnPrev.onclick = () => loadTrack(idx - 1);
+
+            // ─── Persist position ───
+            setInterval(() => {
+                if (music.playing()) {
+                    localStorage.setItem("f1_trackPos", music.seek());
+                }
+            }, 2000);
+
+            // ─── Start playing ───
+            music.play();
+            music.seek(position);
+            render();
+
+            // ─── Part-selection SFX ───
+            const partSFX = {
+                tires: new Howl({ src: ["/static/sfx/tire_screech.mp3"], volume: 1 }),
+                engine: new Howl({ src: ["/static/sfx/v10_engine_rev.mp3"], volume: 1 }),
+                frontWing: new Howl({ src: ["/static/sfx/tuning_backup.mp3"], volume: 1 }),
+                rearWing: new Howl({ src: ["/static/sfx/tuning_backup.mp3"], volume: 1 }),
+                chassis: new Howl({ src: ["/static/sfx/tuning_backup.mp3"], volume: 1 }),
+            };
+            document.querySelectorAll("[data-part], [data-category]").forEach(el => {
+                el.addEventListener("click", () => {
+                    const key = el.dataset.category || el.dataset.part;
+                    partSFX[key]?.play();
+            });
+        });
+    })();
+    </script>
+{% endblock %}
+</body>
+</html>
