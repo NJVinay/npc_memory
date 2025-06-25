@@ -1,9 +1,12 @@
-<!DOCTYPE html>
-<html>
+{# templates/chat_static.html #}
+{% extends "base_audio.html" %}
 
-<head>
-    <title>Static NPC: TurboTom</title>
+{% block title %}Static NPC: TurboTom{% endblock %}
+{% block head_extras %}
     <script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
+{% block content %}
     <style>
         body {
             background: beige;
@@ -222,7 +225,6 @@
             z-index: -1;
         }
     </style>
-</head>
 
 <body style="margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column;">
 
@@ -249,9 +251,9 @@
                         <img src="/static/images/car_parts/Standard_Monocoque_Chassis.png" alt="Standard Monocoque" />
                         <p>Standard Monocoque</p>
                     </div>
-                    <div class="part-card" data-category="chassis" data-part="Lightweight">
+                    <div class="part-card" data-category="chassis" data-part="Ground Effect Optimized">
                         <img src="/static/images/car_parts/GroundEffectOptimized_Monocoque_Chassis.png"
-                            alt="lightweight" />
+                            alt="Ground Effect Optimized" />
                         <p>Ground Effect Optimized</p>
                     </div>
                 </div>
@@ -285,28 +287,28 @@
                 </div>
             </div>
 
-            <div class="part-group" id="front_wing-group">
+            <div class="part-group" id="frontWing-group">
                 <h3 class="text-white font-semibold text-lg mb-2">Front Wing:</h3>
                 <div class="part-options">
-                    <div class="part-card" data-category="front_wing" data-part="High Lift">
+                    <div class="part-card" data-category="frontWing" data-part="High Lift">
                         <img src="/static/images/car_parts/High_Lift_FrontWing.png" alt="High Lift" />
                         <p>High Lift</p>
                     </div>
-                    <div class="part-card" data-category="front_wing" data-part="Carbon Fiber">
+                    <div class="part-card" data-category="frontWing" data-part="Carbon Fiber">
                         <img src="/static/images/car_parts/Simple_Outwash_FrontWing.png" alt="Carbon Fiber" />
                         <p>Carbon Fiber</p>
                     </div>
                 </div>
             </div>
 
-            <div class="part-group" id="rear_wing-group">
+            <div class="part-group" id="rearWing-group">
                 <h3 class="text-white font-semibold text-lg mb-2">Rear Wing :</h3>
                 <div class="part-options">
-                    <div class="part-card" data-category="rear_wing" data-part="High Downforce">
+                    <div class="part-card" data-category="rearWing" data-part="High Downforce">
                         <img src="/static/images/car_parts/High_Downforce_RearWing.png" alt="High Downforce" />
                         <p>High Downforce</p>
                     </div>
-                    <div class="part-card" data-category="rear_wing" data-part="Low Drag">
+                    <div class="part-card" data-category="rearWing" data-part="Low Drag">
                         <img src="/static/images/car_parts/Low_Drag_RearWing.png" alt="Low Drag" />
                         <p>Low Drag</p>
                     </div>
@@ -358,6 +360,10 @@
                     Feedback</a>
             </div>
         </div>
+{% endblock %}
+
+{% block body_end %}
+{{ super() }}
 
         <script>
             const partCodeMap = {
@@ -373,11 +379,11 @@
                     "C5 Slick": "T1",
                     "Full Wet": "T2"
                 },
-                front_wing: {
+                frontWing: {
                     "High Lift": "F1",
                     "Carbon Fiber": "F2"
                 },
-                rear_wing: {
+                rearWing: {
                     "High Downforce": "R1",
                     "Low Drag": "R2"
                 }
@@ -394,15 +400,15 @@
                     chassis: null,
                     engine: null,
                     tires: null,
-                    front_wing: null,
-                    rear_wing: null
+                    frontWing: null,
+                    rearWing: null
                 };
 
                 function updateCarPreview() {
-                    const { chassis, engine, tires, front_wing, rear_wing } = selectedParts;
+                    const { chassis, engine, tires, frontWing, rearWing } = selectedParts;
                     const middleDisplay = document.getElementById("middle-display");
 
-                    if (!chassis || !engine || !tires || !front_wing || !rear_wing) {
+                    if (!chassis || !engine || !tires || !frontWing || !rearWing) {
                         middleDisplay.style.backgroundImage = "";
                         middleDisplay.style.backgroundColor = "black";
                         return;
@@ -411,8 +417,8 @@
                     const chassisCode = partCodeMap.chassis[chassis];
                     const engineCode = partCodeMap.engine[engine];
                     const tiresCode = partCodeMap.tires[tires];
-                    const frontWingCode = partCodeMap.front_wing[front_wing];
-                    const rearWingCode = partCodeMap.rear_wing[rear_wing];
+                    const frontWingCode = partCodeMap.frontWing[frontWing];
+                    const rearWingCode = partCodeMap.rearWing[rearWing];
 
                     const fileName = `${engineCode}_${tiresCode}_${chassisCode}_${frontWingCode}_${rearWingCode}.png`;
                     const imagePath = `/static/images/32_cars/${fileName}`;
@@ -623,8 +629,8 @@
                     formData.append("chassis", selectedParts.chassis);
                     formData.append("engine", selectedParts.engine);
                     formData.append("tires", selectedParts.tires);
-                    formData.append("front_wing", selectedParts.front_wing);
-                    formData.append("rear_wing", selectedParts.rear_wing);
+                    formData.append("frontWing", selectedParts.frontWing);
+                    formData.append("rearWing", selectedParts.rearWing);
                     fetch("/save_car_build", {
                         method: "POST",
                         body: formData
@@ -703,10 +709,10 @@
                     if (currentNode === "tiresBuild" && category === "tires") {
                         progressConversation("Tires locked in.");
                     }
-                    if (currentNode === "frontWingBuild" && category === "front_wing") {
+                    if (currentNode === "frontWingBuild" && category === "frontWing") {
                         progressConversation("Front wing selected.");
                     }
-                    if (currentNode === "rearWingBuild" && category === "rear_wing") {
+                    if (currentNode === "rearWingBuild" && category === "rearWing") {
                         progressConversation("Rear wing locked in.");
                     }
                 }
@@ -720,6 +726,4 @@
                 });
             }); 
         </script>
-</body>
-
-</html>
+{% endblock %}
