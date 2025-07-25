@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to NPC Evaluation</title>
+    <title>NPC Interaction Research Study</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
         body {
@@ -15,102 +15,715 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
-            height: 100vh;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         .login-box {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.85);
             padding: 40px;
-            border-radius: 10px;
-            width: 400px;
+            border-radius: 15px;
+            width: 450px;
             margin: auto;
-            margin-top: 12vh;
-            box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0px 0px 30px rgba(255, 204, 0, 0.4);
             color: rgb(68, 216, 172);
-            backdrop-filter: blur(6px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 204, 0, 0.3);
         }
 
-        input[type="text"], input[type="password"] {
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h2 {
+            color: #ffcc00;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .login-header p {
+            color: #68d8ac;
+            font-size: 16px;
+            line-height: 1.4;
+            margin-bottom: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #68d8ac;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 204, 0, 0.3);
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #96cc31;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #ffcc00;
+            box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+        }
+
+        .consent-section {
+            background: rgba(255, 107, 107, 0.1);
+            border: 2px solid #ff6b6b;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .consent-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .consent-checkbox input[type="checkbox"] {
+            margin-top: 4px;
+            transform: scale(1.3);
+            accent-color: #ffcc00;
+        }
+
+        .consent-checkbox label {
+            color: #fff;
+            line-height: 1.4;
+            font-size: 14px;
+        }
+
+        .consent-link {
+            color: #ffcc00;
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .consent-link:hover {
+            color: #ffe066;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ffcc00, #ffd700);
+            border: none;
+            font-family: 'Orbitron', sans-serif;
+            padding: 14px 28px;
+            color: #000;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            min-width: 160px;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #ffd700, #ffdc00);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 204, 0, 0.4);
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid #68d8ac;
+            color: #68d8ac;
+        }
+
+        .btn-secondary:hover {
+            background: #68d8ac;
+            color: #000;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: rgba(0, 0, 0, 0.95);
+            margin: 2% auto;
+            padding: 30px;
+            border: 2px solid #ffcc00;
+            border-radius: 15px;
             width: 90%;
-            padding: 10px;
-            margin-top: 10px;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            color: #fff;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #ffcc00;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            color: #ffcc00;
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .close {
+            color: #ff6b6b;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: #ff4444;
+        }
+
+        .consent-form-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ffcc00;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .form-group-modal {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group-modal.full-width {
+            grid-column: span 2;
+        }
+
+        .form-group-modal label {
+            color: #68d8ac;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group-modal input,
+        .form-group-modal select {
+            width: 100%;
+            padding: 8px 12px;
             border-radius: 5px;
             border: 1px solid #ccc;
             background-color: rgba(0, 0, 0, 0.6);
             color: #96cc31;
+            box-sizing: border-box;
         }
 
-        .btn {
-            background-color: transparent;
-            border: 2px solid #ffcc00;
-            font-family: 'Orbitron', sans-serif;
-            padding: 10px 20px;
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-top: 5px;
+            transform: scale(1.2);
+            accent-color: #ffcc00;
+        }
+
+        .checkbox-group label {
+            margin: 0;
             color: #fff;
-            margin-top: 10px;
-            cursor: pointer;
+            line-height: 1.4;
         }
 
-        .btn:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
+        .required-consents {
+            border: 2px solid #ff6b6b;
+            padding: 15px;
+            border-radius: 5px;
+            background: rgba(255, 107, 107, 0.1);
+            margin: 15px 0;
+        }
+
+        .contact-info {
+            background: rgba(104, 216, 172, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .modal-buttons {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+        }
+
+        .small-text {
+            font-size: 12px;
+            color: #ccc;
+            line-height: 1.3;
+        }
+
+        @media (max-width: 600px) {
+            .login-box {
+                width: 70%;
+                padding: 20px 10px;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 1% auto;
+                padding: 20px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group-modal.full-width {
+                grid-column: span 1;
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="login-box">
-        <h2>Welcome to NPC Immersion Study</h2>
-        <p>This short experience compares two NPC types: Dax (AI) and TurboTom (Traditional).</p>
+        <div class="login-header">
+            <h2>🏎️ BTH Research Study</h2>
+            <p>NPC Interaction & AI Immersion Research<br>
+                Experience the future of AI-powered gaming assistants.<br>
+                <strong>Login to participate in our study!</strong>
+            </p>
+        </div>
 
         <form onsubmit="handleLogin(event)">
-            <input type="text" id="player_uuid" placeholder="Enter your unique link ID" required autocomplete="off">
-            <input type="password" id="player_pin" placeholder="Enter 4-digit PIN" required autocomplete="new-password">
-            <input type="checkbox" id="consentCheckbox" required>
-            <label for="consentCheckbox"> I consent to participate in this academic study and understand my data will be anonymized.</label><br><br>
-            <button class="btn" type="submit" id="continueBtn" disabled>🚀 Continue to Test</button>
-        </form>
-        
-        <br>
+            <div class="form-group">
+                <label for="player_uuid">📋 Study ID</label>
+                <input type="text" id="player_uuid" placeholder="Enter your unique study identifier" required
+                    autocomplete="off">
+            </div>
 
-        <a href="/create_player_form" class="btn">👤 Create New Player</a>
+            <div class="form-group">
+                <label for="player_pin">🔐 4-Digit PIN</label>
+                <input type="password" id="player_pin" placeholder="Enter your secure PIN" required
+                    autocomplete="new-password" maxlength="4" pattern="\d{4}">
+            </div>
+
+            <div class="consent-section">
+                <div class="consent-checkbox">
+                    <input type="checkbox" id="consentCheckbox" required disabled>
+                    <label for="consentCheckbox">
+                        <strong>I have read and agree to the study terms.</strong><br>
+                        <span class="small-text">Please review the <span class="consent-link"
+                                onclick="openConsentModal()">research consent form</span> before proceeding.</span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <button class="btn" type="submit" id="continueBtn" disabled>🚀 Start Research Study</button>
+                <br><br>
+                <a href="/create_player_form" class="btn btn-secondary">👤 Create New Account</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Consent Modal -->
+    <div id="consentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Research Study Consent Form</h2>
+                <span class="close" onclick="closeConsentModal()">&times;</span>
+            </div>
+
+            <div class="consent-form-section">
+                <h3 style="color: #ffcc00; margin-top: 0;">Study Information</h3>
+                <p><strong>Principal Investigator:</strong> Jyotir Vinay Naram - Blekinge Institute of Technology (BTH)</p>
+                <p><strong>Study Title:</strong> "Memory-Driven NPC Behavior: Context-Aware and Emotion-Based Game Conversations"</p>
+                <p><strong>Duration:</strong> Approximately 15-20 minutes</p>
+                <p><strong>Purpose:</strong> This study compares two types of non-player characters (NPCs) to understand
+                    how different AI approaches affect player experience and immersion in gaming contexts. You will be
+                    randomly assigned to interact with either Dax (AI-powered) or TurboTom (rule-based) NPC.</p>
+            </div>
+
+            <div class="consent-form-section">
+                <h3 style="color: #ffcc00; margin-top: 0;">What Will Happen</h3>
+                <p>You will interact with two different NPCs (Dax - AI-powered, and TurboTom - rule-based) in a Formula
+                    1 car configuration scenario. We will collect:</p>
+                <ul>
+                    <li>Your conversations with the NPCs</li>
+                    <li>Response times and interaction patterns</li>
+                    <li>Basic demographic information</li>
+                    <li>Your feedback about the experience</li>
+                </ul>
+            </div>
+
+            <div class="consent-form-section">
+                <h3 style="color: #ffcc00; margin-top: 0;">Data Protection & GDPR Rights</h3>
+                <p><strong>Legal Basis:</strong> Consent for academic research (Art. 6(1)(a) GDPR)</p>
+                <p><strong>Data Storage:</strong> Research data will be stored in encrypted CSV files on secure BTH
+                    servers during the project period</p>
+                <p><strong>Data Retention:</strong> All data will be permanently deleted when the research project
+                    concludes (expected: [Your Project End Date])</p>
+                <p><strong>Your Rights:</strong> You may withdraw consent, request data access, correction, or deletion
+                    at any time</p>
+                <p><strong>Data Security:</strong> All data is encrypted and stored on secure university servers</p>
+                <p><strong>Anonymization:</strong> Personal identifiers will be removed from research outputs and
+                    publications</p>
+            </div>
+
+            <form id="demographicForm">
+                <div class="consent-form-section">
+                    <h3 style="color: #ffcc00; margin-top: 0;">Participant Information</h3>
+                    <div class="form-grid">
+                        <div class="form-group-modal">
+                            <label for="participant_name">Full Name *</label>
+                            <input type="text" id="participant_name" required placeholder="Your full name">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="participant_course">Course/Program *</label>
+                            <input type="text" id="participant_course" required
+                                placeholder="e.g., Computer Science, Software Engineering">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="participant_email">BTH Email (Optional)</label>
+                            <input type="email" id="participant_email" placeholder="yourname@student.bth.se (optional)">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="participant_gender">Gender</label>
+                            <select id="participant_gender">
+                                <option value="">Prefer not to say</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="non-binary">Non-binary</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="current_year">Current Year of Study *</label>
+                            <select id="current_year" required>
+                                <option value="">Select year</option>
+                                <option value="1">1st Year</option>
+                                <option value="2">2nd Year</option>
+                                <option value="3">3rd Year</option>
+                                <option value="4">4th Year</option>
+                                <option value="masters">Master's Student</option>
+                                <option value="phd">PhD Student</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="participant_origin">Where are you from? *</label>
+                            <input type="text" id="participant_origin" required
+                                placeholder="e.g., Sweden, Germany, India">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="gaming_experience">Gaming Experience *</label>
+                            <select id="gaming_experience" required>
+                                <option value="">Select experience</option>
+                                <option value="none">No gaming experience</option>
+                                <option value="casual">Casual gamer (few hours/week)</option>
+                                <option value="regular">Regular gamer (several hours/week)</option>
+                                <option value="hardcore">Hardcore gamer (daily)</option>
+                            </select>
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="ai_familiarity">AI/Chatbot Familiarity *</label>
+                            <select id="ai_familiarity" required>
+                                <option value="">Select familiarity</option>
+                                <option value="none">No experience</option>
+                                <option value="basic">Basic (ChatGPT, Siri, Alexa)</option>
+                                <option value="intermediate">Intermediate (multiple AI tools)</option>
+                                <option value="advanced">Advanced (AI development/research)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="required-consents">
+                    <h3 style="color: #ff6b6b; margin-top: 0;">Consent Requirements</h3>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="consent_participate" required>
+                        <label for="consent_participate">
+                            <strong>I consent to participate in this research study.</strong> I understand the purpose,
+                            procedures, and that my participation is voluntary.
+                        </label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="consent_data" required>
+                        <label for="consent_data">
+                            <strong>I consent to the collection and processing of my data</strong> for this research as
+                            described above (conversation logs, demographic information, interaction patterns).
+                        </label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="consent_age" required>
+                        <label for="consent_age">
+                            <strong>I confirm that I am 18 years of age or older.</strong>
+                        </label>
+                    </div>
+
+                    <h4 style="color: #68d8ac; margin: 20px 0 10px 0;">Optional Permissions</h4>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="consent_future">
+                        <label for="consent_future">
+                            I consent to being contacted for future related research studies (optional).
+                        </label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="consent_results">
+                        <label for="consent_results">
+                            I would like to receive a summary of the research findings when available (optional).
+                        </label>
+                    </div>
+                </div>
+
+                <div class="consent-form-section">
+                    <h3 style="color: #ffcc00; margin-top: 0;">Additional Information</h3>
+                    <p><strong>Random Assignment:</strong> You will be randomly assigned to interact with either Dax
+                        (AI-enhanced NPC) or TurboTom (traditional rule-based NPC). This is done automatically by the
+                        system to ensure fair comparison.</p>
+                    <p><strong>Withdrawal:</strong> You may stop participation at any time without penalty. Your data
+                        can be deleted upon request until the study analysis begins.</p>
+                </div>
+            </form>
+
+            <div class="contact-info">
+                <h3 style="color: #68d8ac; margin-top: 0;">Contact Information (Required by GDPR)</h3>
+                <p><strong>For questions about this study:</strong><br>
+                    Jyotir Vinay Naram - jyna24@student.bth.se - Blekinge Institute of Technology<br>
+                    <em>Contact me if you have questions about the research, want to withdraw, or need your data deleted.</em>
+                </p>
+
+                <p class="small-text">
+                    <strong>Your Rights:</strong> You may withdraw your consent at any time by contacting the researcher.
+                    Withdrawal will not affect any analysis of data collected before withdrawal. 
+                    You can also request to see, correct, or delete your personal data at any time during the study period.
+                </p>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn" type="button" onclick="closeConsentModal()" style="background: #666; color: #fff;">❌
+                    Cancel</button>
+                <button class="btn" type="button" onclick="agreeToConsent()" id="agreeBtn" disabled>✅ I Agree to
+                    Participate</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        function handleLogin(event) {
-                event.preventDefault();
-                const uuid = document.getElementById("player_uuid").value.trim();
-                const pin = document.getElementById("player_pin").value.trim();
+        let consentData = {};
 
-                if (!uuid || !pin) {
-                    alert("Please enter your link and PIN");
-                    return;
-                }
-
-                fetch(`/verify_player?uuid=${uuid}&pin=${pin}`)
-                    .then(res => {
-                        if (!res.ok) throw new Error("Invalid credentials");
-                        return res.json();
-                    })
-                    .then(data => {
-                        localStorage.setItem("player_id", data.player_id);
-                        window.location.href = `/cover?player_id=${data.player_id}`;
-                    })
-                    .catch(err => {
-                        alert("Login failed. Please check your ID and PIN.");
-                    });
-                console.log("Submitting login...");
-
+        function openConsentModal() {
+            document.getElementById('consentModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            const checkbox = document.getElementById("consentCheckbox");
-            const btn = document.getElementById("continueBtn");
+        function closeConsentModal() {
+            document.getElementById('consentModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
 
-            checkbox.addEventListener("change", () => {
-                btn.disabled = !checkbox.checked;
+        function agreeToConsent() {
+            // Validate required fields
+            const requiredFields = {
+                name: document.getElementById('participant_name').value.trim(),
+                course: document.getElementById('participant_course').value.trim(),
+                year: document.getElementById('current_year').value,
+                origin: document.getElementById('participant_origin').value.trim(),
+                gaming_experience: document.getElementById('gaming_experience').value,
+                ai_familiarity: document.getElementById('ai_familiarity').value
+            };
+
+            // Check if required fields are filled
+            for (const [field, value] of Object.entries(requiredFields)) {
+                if (!value) {
+                    alert(`Please fill in the required field: ${field.replace('_', ' ')}`);
+                    return;
+                }
+            }
+
+            // Collect all demographic data
+            consentData = {
+                name: requiredFields.name,
+                course: requiredFields.course,
+                bth_email: document.getElementById('participant_email').value.trim(),
+                gender: document.getElementById('participant_gender').value,
+                current_year: requiredFields.year,
+                origin: requiredFields.origin,
+                gaming_experience: requiredFields.gaming_experience,
+                ai_familiarity: requiredFields.ai_familiarity,
+                consent_participate: document.getElementById('consent_participate').checked,
+                consent_data: document.getElementById('consent_data').checked,
+                consent_age: document.getElementById('consent_age').checked,
+                consent_future: document.getElementById('consent_future').checked,
+                consent_results: document.getElementById('consent_results').checked,
+                consent_timestamp: new Date().toISOString()
+            };
+
+            // Store consent data locally
+            localStorage.setItem('consent_data', JSON.stringify(consentData));
+
+            // Enable main consent checkbox
+            document.getElementById('consentCheckbox').disabled = false;
+            document.getElementById('consentCheckbox').checked = true;
+
+            // Enable continue button
+            updateContinueButton();
+
+            // Close modal
+            closeConsentModal();
+
+            // Show success message
+            alert('✅ Thank you! Your consent has been recorded. You may now proceed with the study.');
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const uuid = document.getElementById("player_uuid").value.trim();
+            const pin = document.getElementById("player_pin").value.trim();
+
+            if (!uuid || !pin) {
+                alert("Please enter your Study ID and PIN");
+                return;
+            }
+
+            if (!document.getElementById('consentCheckbox').checked) {
+                alert("Please review and agree to the consent form first.");
+                return;
+            }
+
+            fetch(`/verify_player?uuid=${uuid}&pin=${pin}`)
+                .then(res => {
+                    if (!res.ok) throw new Error("Invalid credentials");
+                    return res.json();
+                })
+                .then(data => {
+                    localStorage.setItem("player_id", data.player_id);
+
+                    // Store consent data with player_id if available
+                    const storedConsent = localStorage.getItem('consent_data');
+                    if (storedConsent) {
+                        const consentWithPlayerId = {
+                            ...JSON.parse(storedConsent),
+                            player_id: data.player_id,
+                            study_uuid: uuid
+                        };
+
+                        // Send to backend (optional - non-blocking)
+                        fetch('/store_consent', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(consentWithPlayerId)
+                        }).catch(err => console.log('Consent storage optional:', err));
+                    }
+
+                    window.location.href = `/cover?player_id=${data.player_id}`;
+                })
+                .catch(err => {
+                    alert("Login failed. Please check your Study ID and PIN.");
+                });
+        }
+
+        function updateContinueButton() {
+            const uuid = document.getElementById("player_uuid").value.trim();
+            const pin = document.getElementById("player_pin").value.trim();
+            const consent = document.getElementById("consentCheckbox").checked;
+
+            document.getElementById("continueBtn").disabled = !(uuid && pin && consent);
+        }
+
+        function updateAgreeButton() {
+            const requiredConsents = [
+                document.getElementById("consent_participate").checked,
+                document.getElementById("consent_data").checked,
+                document.getElementById("consent_age").checked
+            ];
+
+            const requiredFields = [
+                document.getElementById("participant_name").value.trim(),
+                document.getElementById("participant_course").value.trim(),
+                document.getElementById("current_year").value,
+                document.getElementById("participant_origin").value.trim(),
+                document.getElementById("gaming_experience").value,
+                document.getElementById("ai_familiarity").value
+            ];
+
+            const allRequiredFilled = requiredFields.every(field => field);
+            const allConsentsChecked = requiredConsents.every(c => c);
+
+            document.getElementById("agreeBtn").disabled = !(allRequiredFilled && allConsentsChecked);
+        }
+
+        // Event listeners
+        document.addEventListener("DOMContentLoaded", () => {
+            // Update continue button state
+            ["player_uuid", "player_pin", "consentCheckbox"].forEach(id => {
+                document.getElementById(id).addEventListener("input", updateContinueButton);
+                document.getElementById(id).addEventListener("change", updateContinueButton);
             });
 
-            
+            // Update agree button state in modal
+            [
+                "consent_participate", "consent_data", "consent_age",
+                "participant_name", "participant_course", "current_year",
+                "participant_origin", "gaming_experience", "ai_familiarity"
+            ].forEach(id => {
+                const element = document.getElementById(id);
+                element.addEventListener(
+                    element.type === "checkbox" ? "change" : "input",
+                    updateAgreeButton
+                );
+            });
+
+            // Close modal when clicking outside
+            window.addEventListener("click", (event) => {
+                const modal = document.getElementById('consentModal');
+                if (event.target === modal) {
+                    closeConsentModal();
+                }
+            });
         });
     </script>
 </body>

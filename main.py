@@ -5,7 +5,8 @@ from models import Base, NPCMemory, Player, CarBuild
 from schemas import NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate, PlayerCreate, PlayerResponse
 from typing import List
 from sentiment import analyze_sentiment
-from deepseek import generate_npc_response
+#from deepseek import generate_npc_response
+from llamacpp import generate_npc_response
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
@@ -13,7 +14,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from turbotom import turbotom_response
-import os, json, hashlib, time, random
+import os, json, hashlib, time, random, csv
 from uuid import UUID, uuid4
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
@@ -234,16 +235,18 @@ def post_chat(
     context = list(reversed(history)) #reversing from old to new to fetch the last 2
 
     sentiment = analyze_sentiment(dialogue)
+    print(f"📊 PLAYER SENTIMENT: '{dialogue}' → {sentiment} ({'positive' if sentiment == 'positive' else 'negative' if sentiment == 'negative' else 'neutral'})")
     player_name = db.query(Player).filter(Player.id == player_id).first().name
-    npc_reply = generate_npc_response(dialogue, sentiment, player_id, context, player_name)
+    npc_reply_obj = generate_npc_response(dialogue, sentiment, player_id, context, player_name)
+    npc_reply_str = json.dumps(npc_reply_obj) if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
 
     memory = NPCMemory(
-        player_id = player_id,
-        npc_id = 1,
-        dialogue = dialogue,
-        sentiment = sentiment,
-        npc_reply = npc_reply,
-        npc_sentiment = analyze_sentiment(npc_reply)
+        player_id=player_id,
+        npc_id=1,
+        dialogue=dialogue,
+        sentiment=sentiment,
+        npc_reply=npc_reply_str,
+        npc_sentiment=analyze_sentiment(npc_reply_str)
     )
 
     db.add(memory)
@@ -264,7 +267,7 @@ def post_chat(
     return templates.TemplateResponse("chat.html", {
         "request": request,
         "players": players,
-        "npc_reply": npc_reply,
+        "npc_reply": npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) else str(npc_reply_obj),
         "last_dialogue": dialogue,
         "selected_player_id": player_id,
         "chat_history": chat_history
@@ -289,12 +292,15 @@ async def chat_api(
 
     start = time.time()
     sentiment = analyze_sentiment(dialogue)
+    print(f"📊 PLAYER SENTIMENT: '{dialogue}' → {sentiment} ({'positive' if sentiment == 'positive' else 'negative' if sentiment == 'negative' else 'neutral'})")  
     print("Sentiment analysis took:", round(time.time() - start, 2), "s")
     player_obj = db.query(Player).filter(Player.id == player_id).first()
     player_name = player_obj.display_name or player_obj.name
     build = get_latest_build(player_id, db)
     llm_start = time.time()
-    npc_reply = generate_npc_response(dialogue, sentiment, player_id, context, player_name, build=build)
+    npc_reply_obj = generate_npc_response(dialogue, sentiment, player_id, context, player_name, build=build)
+    npc_reply_str = json.dumps(npc_reply_obj) if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
+
     llm_duration = round(time.time() - llm_start, 2)
     print(f"⏱️ LLM generation took: {llm_duration}s")
     
@@ -304,28 +310,17 @@ async def chat_api(
         npc_id=1,
         dialogue=dialogue,
         sentiment=sentiment,
-        npc_reply=npc_reply,
-        npc_sentiment=analyze_sentiment(npc_reply)
+        npc_reply=npc_reply_str,
+        npc_sentiment=analyze_sentiment(npc_reply_str)
     )
     db.add(memory)
     db.commit()
     print("🗃️ DB commit took:", round(time.time() - commit_start, 2), "s")
 
-    try:
-        db_commit_start = time.time()
-        db_duration = round(time.time() - db_commit_start, 2)
-        print(f"🗃️ DB commit took: {db_duration}s")
-
-    except Exception as e:
-        db.rollback()
-        print("DB commit error (chat_api): ", e)
-        raise HTTPException(status_code=500, detail="Database issue")
-
     return JSONResponse(content={
         "player_dialogue": dialogue,
-        "npc_reply": npc_reply["response"] if isinstance(npc_reply, dict) else str(npc_reply)
+        "npc_reply": npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
         })
-    
 
 @app.get("/create_player_form", response_class=HTMLResponse)
 def player_form(request: Request):
@@ -458,3 +453,50 @@ def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     return {"player_id": player.id}
+
+@app.post("/store_consent")
+def store_consent(consent_data: dict):
+    try:
+        # Define CSV file path
+        csv_file = "consent_data.csv"
+        
+        # Check if file exists to determine if we need headers
+        file_exists = os.path.isfile(csv_file)
+        
+        # Prepare the data row
+        row_data = {
+            'timestamp': consent_data.get('consent_timestamp'),
+            'player_id': consent_data.get('player_id'),
+            'study_uuid': consent_data.get('study_uuid'),
+            'name': consent_data.get('name'),
+            'course': consent_data.get('course'),
+            'bth_email': consent_data.get('bth_email', ''),
+            'gender': consent_data.get('gender', ''),
+            'current_year': consent_data.get('current_year'),
+            'origin': consent_data.get('origin'),
+            'gaming_experience': consent_data.get('gaming_experience'),
+            'ai_familiarity': consent_data.get('ai_familiarity'),
+            'consent_participate': consent_data.get('consent_participate'),
+            'consent_data': consent_data.get('consent_data'),
+            'consent_age': consent_data.get('consent_age'),
+            'consent_future': consent_data.get('consent_future', False),
+            'consent_results': consent_data.get('consent_results', False)
+        }
+        
+        # Write to CSV
+        with open(csv_file, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=row_data.keys())
+            
+            # Write header if file is new
+            if not file_exists:
+                writer.writeheader()
+            
+            # Write the data
+            writer.writerow(row_data)
+        
+        print(f"📋 Consent stored to CSV for {consent_data.get('name')} (Player {consent_data.get('player_id')})")
+        return {"status": "success"}
+        
+    except Exception as e:
+        print(f"❌ Error storing consent to CSV: {e}")
+        return {"status": "error", "message": str(e)}
