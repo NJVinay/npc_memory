@@ -25,8 +25,8 @@ The system:
 |:---|:---|
 | Backend API | **FastAPI** (Python) |
 | Database | **PostgreSQL** (hosted on **Neon.tech**) |
-| Language Model | **Mistral 7B** / **DeepSeek** via **Ollama** |
-| Sentiment Analysis | **RoBERTa** (Cardiff NLP) |
+| Language Model | **Mistral** |
+| Sentiment Analysis | **RoBERTa** |
 | Frontend | **HTML/CSS** + **Vanilla JavaScript** |
 | Deployment | GitHub + Render/Neon (for future) |
 
@@ -38,7 +38,6 @@ The system:
 - ✅ **Sentiment-Aware** Dialogue Generation
 - ✅ **NPC Memory** of Past Conversations
 - ✅ **Dynamic Chat UI** with "NPC is thinking..." Animation
-- ✅ **Multiple Players** Supported
 - ✅ **FastAPI Endpoints** for Chat, Memory Fetch, Player Creation
 - ✅ **Clean API structure** for future 2D/3D game integration
 
@@ -55,7 +54,7 @@ Backend FastAPI
     ↓
 Analyze Sentiment (RoBERTa)
     ↓
-Generate NPC Reply (Mistral 7B via Ollama)
+Generate NPC Reply (Mistral)
     ↓
 Save Interaction in Neon Database
     ↓
@@ -91,19 +90,14 @@ pip install -r requirements.txt
 
 Create a `.env` based on `.env.example` and add your Neon DATABASE_URL.
 
-5. **Start Ollama LLM Server:**
 
-```bash
-ollama run mistral:7b
-```
-
-6. **Run FastAPI Backend:**
+5. **Run FastAPI Backend:**
 
 ```bash
 uvicorn main:app --reload
 ```
 
-7. **Access Frontend:**
+6. **Access Frontend:**
 - Open the website using localhost url which looks something like this: [http://localhost:8000/](http://localhost:8000/)  
 
 ---
