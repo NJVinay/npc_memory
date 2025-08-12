@@ -11,3 +11,5 @@ torch
 scikit-learn
 httpx
 python-multipart
+textblob 
+llama-cpp-python

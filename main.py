@@ -5,15 +5,14 @@ from models import Base, NPCMemory, Player, CarBuild
 from schemas import NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate, PlayerCreate, PlayerResponse
 from typing import List
 from sentiment import analyze_sentiment
-#from deepseek import generate_npc_response
-from llamacpp import generate_npc_response
+from llamacpp import generate_npc_response  # llamacpp.py is the alternative to deepseek.py
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
-from turbotom import turbotom_response
+## turbotom.py is deprecated; chat_static.html is the alternative for static NPC chat
 import os, json, hashlib, time, random, csv
 from uuid import UUID, uuid4
 
@@ -135,7 +134,7 @@ def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get
     player_sentiment = analyze_sentiment(data.dialogue)
     npc_interaction.sentiment = player_sentiment
 
-    # Generate NPC response via Deepseek
+    # llamacpp.py is now used for NPC response generation (replaces deepseek.py)
     npc_reply = generate_npc_response(data.dialogue, player_sentiment)
     npc_interaction.npc_reply = npc_reply
 
@@ -356,32 +355,29 @@ def get_static_chat(request: Request, db: Session = Depends(get_db)):
         "players": players
     })
 
+
 @app.post("/chat_api_static")
 async def chat_api_static(
-    request = Request,
+    request: Request,
     player_id: int = Form(...),
     npc_id: int = Form(...),
     dialogue: str = Form(...),
-    db : Session = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    response = turbotom_response(dialogue, player_id, db)
+    # Use llamacpp for static NPC response (alternative to turbotom)
+    sentiment = analyze_sentiment(dialogue)
+    player = db.query(Player).filter(Player.id == player_id).first()
+    player_name = player.display_name or player.name if player else "Player"
+    npc_reply_obj = generate_npc_response(dialogue, sentiment, player_id, [], player_name)
+    npc_reply_str = npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) and "response" in npc_reply_obj else str(npc_reply_obj)
     return JSONResponse(content={
         "player_dialogue": dialogue,
-        "npc_reply": response}
-    )
-
-
-@app.get("/build", response_class=HTMLResponse)
-def get_build(request: Request, db: Session = Depends(get_db), player_id: int = Query(default=None)):
-    players = db.query(Player).all()
-    players_json = jsonable_encoder(players)
-    if not player_id and players:
-        player_id = players[0].id  # default to first player
-    return templates.TemplateResponse("build.html", {
-        "request": request,
-        "players": players_json,
-        "selected_player_id": player_id
+        "npc_reply": npc_reply_str
     })
+
+
+
+# build.html endpoint removed (no alternative needed)
 
 @app.post("/save_car_build")
 async def save_car_build(
