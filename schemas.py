@@ -92,6 +92,25 @@ class PlayerResponse(BaseModel):
 
 
 # =============================================================================
+# Car Build Schemas
+# =============================================================================
+
+class CarBuildResponse(BaseModel):
+    """Schema for car build responses."""
+    id: int = Field(..., description="Unique build ID")
+    player_id: int = Field(..., description="Player ID who created the build")
+    chassis: Optional[str] = Field(None, description="Chassis type")
+    engine: Optional[str] = Field(None, description="Engine type")
+    tires: Optional[str] = Field(None, description="Tire type")
+    front_wing: Optional[str] = Field(None, description="Front wing configuration")
+    rear_wing: Optional[str] = Field(None, description="Rear wing configuration")
+    created_at: datetime = Field(..., description="When the build was created")
+
+    class Config:
+        from_attributes = True
+
+
+# =============================================================================
 # Consent Schemas
 # =============================================================================
 

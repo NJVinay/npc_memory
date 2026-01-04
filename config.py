@@ -29,6 +29,11 @@ class Config:
     DB_POOL_RECYCLE: int = int(os.getenv("DB_POOL_RECYCLE", "3600"))
     
     # AI Model Settings
+    USE_EXTERNAL_LLM: bool = os.getenv("USE_EXTERNAL_LLM", "false").lower() == "true"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
+    LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
+    
     MODEL_PATH: str = os.getenv("MODEL_PATH", "./models/mistral-7b-instruct-v0.1.Q2_K.gguf")
     MODEL_N_THREADS: int = int(os.getenv("MODEL_N_THREADS", "2"))
     MODEL_N_CTX: int = int(os.getenv("MODEL_N_CTX", "4096"))  # Optimized for 16GB RAM
@@ -75,8 +80,14 @@ class Config:
         if not cls.DATABASE_URL:
             raise ValueError("DATABASE_URL must be set in environment variables")
         
-        if not os.path.exists(cls.MODEL_PATH):
-            raise FileNotFoundError(f"Model file not found: {cls.MODEL_PATH}")
+        # Only check for model file if using local LLM
+        if not cls.USE_EXTERNAL_LLM:
+            if not os.path.exists(cls.MODEL_PATH):
+                raise FileNotFoundError(f"Model file not found: {cls.MODEL_PATH}")
+        else:
+            # Validate external LLM configuration
+            if not cls.LLM_API_KEY:
+                raise ValueError(f"LLM_API_KEY must be set when USE_EXTERNAL_LLM=true. Get free key at: https://console.groq.com/keys")
         
         return True
     
