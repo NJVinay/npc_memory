@@ -23,6 +23,7 @@ from models import Base, NPCMemory, Player, CarBuild, Consent
 from schemas import (
     NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate,
     PlayerCreate, PlayerResponse,
+    CarBuildResponse,
     ConsentCreate, ConsentResponse
 )
 from services import PlayerService, ChatService, BuildService, ConsentService
@@ -444,7 +445,7 @@ def get_player_builds(
     skip: int = Query(0, ge=0),
     limit: int = Query(config.DEFAULT_PAGE_SIZE, ge=1, le=config.MAX_PAGE_SIZE),
     db: Session = Depends(get_db)
-) -> List[CarBuild]:
+) -> List[CarBuildResponse]:
     builds = BuildService.get_player_builds(db, player_id, skip=skip, limit=limit)
     return builds if builds else []
 
