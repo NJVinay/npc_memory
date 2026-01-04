@@ -1,36 +1,47 @@
+# Standard library imports
+import json
+import os
+import random
+import time
+from typing import List, Optional
+from uuid import UUID, uuid4
+
+# Third-party imports
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, Query
-from sqlalchemy.orm import Session
-from database import SessionLocal, engine
-from models import Base, NPCMemory, Player, CarBuild
-from schemas import NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate, PlayerCreate, PlayerResponse
-from typing import List
-from sentiment import analyze_sentiment
-#from deepseek import generate_npc_response
-from llamacpp import generate_npc_response
-from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.encoders import jsonable_encoder
-from turbotom import turbotom_response
-import os, json, hashlib, time, random, csv
-from uuid import UUID, uuid4
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+
+# Local imports
+from config import config
+from database import SessionLocal, engine
+from llamacpp import get_short_part_name
+from models import Base, NPCMemory, Player, CarBuild, Consent
+from schemas import (
+    NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate,
+    PlayerCreate, PlayerResponse,
+    ConsentCreate, ConsentResponse
+)
+from services import PlayerService, ChatService, BuildService, ConsentService
+from sentiment import analyze_sentiment
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
 
 # Initialize FastAPI app with metadata
 app = FastAPI(
-    title="NPC Memory API",
-    description="API to store, retrieve, update, and delete NPC interactions",
-    version="1.1.0",
+    title=config.APP_NAME,
+    description="API to store, retrieve, update, and delete NPC interactions with AI-powered NPCs",
+    version=config.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Can be modified to allow only the game specific domain
+    allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,25 +52,23 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-class ChatRequest(BaseModel):
-    player_id: int
-    npc_id: int
-    dialogue: str
-
-# Dependency to get the database session
+# Dependency to get the database session with improved error handling
 def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        db.rollback()
+        raise
     finally:
         db.close()
 
 #  Root route   
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, tags=["UI"])
 def login_page_redirect(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-@app.get("/cover", response_class=HTMLResponse)
+@app.get("/cover", response_class=HTMLResponse, tags=["UI"])
 def cover_page(request: Request, player_id: int = Query(...), db: Session = Depends(get_db)):
     return templates.TemplateResponse("cover.html", {
         "request": request,
@@ -67,8 +76,14 @@ def cover_page(request: Request, player_id: int = Query(...), db: Session = Depe
     })
 
 #  Store a new NPC interaction with duplicate check
-@app.post("/store_interaction/", response_model=NPCMemoryResponse, description="Player sends dialogue only. Sentiment is auto-analyzed and NPC reply is generated.", tags=["Create"])
-def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)):
+@app.post(
+    "/store_interaction/",
+    response_model=NPCMemoryResponse,
+    description="Player sends dialogue only. Sentiment is auto-analyzed and NPC reply is generated.",
+    tags=["NPC Interactions"],
+    status_code=201
+)
+def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)) -> NPCMemoryResponse:
     # Check for duplicate entry
     existing_entry = db.query(NPCMemory).filter(
         NPCMemory.player_id == data.player_id,
@@ -79,37 +94,34 @@ def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)):
     if existing_entry:
         raise HTTPException(status_code=400, detail="This interaction already exists.")
 
-    # Analyze player sentiment
-    player_sentiment = analyze_sentiment(data.dialogue)
-
-    # Generate NPC response
-    npc_reply = generate_npc_response(data.dialogue, player_sentiment)
-
-    # Analyze NPC sentiment
-    npc_sentiment = analyze_sentiment(npc_reply)
-
-    # Create the object manually to inject the predicted sentiment  
-    npc_interaction = NPCMemory(
-        player_id=data.player_id,
-        npc_id=data.npc_id,
-        dialogue=data.dialogue,
-        sentiment=player_sentiment,
-        npc_reply=npc_reply,
-        npc_sentiment=npc_sentiment
-    )
-    db.add(npc_interaction)
+    # Get player and context
+    player = PlayerService.get_player_by_id(db, data.player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    player_name = player.display_name or player.name or "Player"
+    build = BuildService.get_latest_build(db, data.player_id)
+    context: List[NPCMemory] = []
+    
+    # Use service layer to create interaction
     try:
-        db.commit()
-        db.refresh(npc_interaction)
+        npc_interaction = ChatService.create_interaction(
+            db, data.player_id, data.npc_id, data.dialogue,
+            context, player_name, build
+        )
+        return npc_interaction
     except Exception as e:
         db.rollback()
-        print("DB commit error (store_interaction): ", e)
+        print(f"DB commit error (store_interaction): {e}")
         raise HTTPException(status_code=500, detail="Database connection issue, consider a retry.")
-    return npc_interaction
 
 #  Retrieve past interactions with error handling
-@app.get("/get_interactions/{player_id}/{npc_id}", response_model=List[NPCMemoryResponse], tags=["Retrieval"])
-def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db)):
+@app.get(
+    "/get_interactions/{player_id}/{npc_id}",
+    response_model=List[NPCMemoryResponse],
+    tags=["NPC Interactions"]
+)
+def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db)) -> List[NPCMemoryResponse]:
     interactions = db.query(NPCMemory).filter(
         NPCMemory.player_id == player_id,
         NPCMemory.npc_id == npc_id
@@ -121,34 +133,57 @@ def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db))
     return interactions
 
 #  Update an NPC interaction
-@app.put("/update_interaction/{id}", response_model=NPCMemoryResponse, description="Update player dialogue only. Sentiment and NPC reply are updated automatically.", tags=["Update"])
-def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get_db)):
+@app.put(
+    "/update_interaction/{id}",
+    response_model=NPCMemoryResponse,
+    description="Update player dialogue only. Sentiment and NPC reply are updated automatically.",
+    tags=["NPC Interactions"]
+)
+def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get_db)) -> NPCMemoryResponse:
     npc_interaction = db.query(NPCMemory).filter(NPCMemory.id == id).first()
 
     if not npc_interaction:
         raise HTTPException(status_code=404, detail="Interaction not found.")
 
-    # Always update dialogue
+    # Get player info
+    player = PlayerService.get_player_by_id(db, npc_interaction.player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    player_name = player.display_name or player.name or "Player"
+    build = BuildService.get_latest_build(db, npc_interaction.player_id)
+    
+    # Update dialogue
     npc_interaction.dialogue = data.dialogue
 
-    # Analyze or accept player sentiment
+    # Analyze player sentiment
     player_sentiment = analyze_sentiment(data.dialogue)
     npc_interaction.sentiment = player_sentiment
 
-    # Generate NPC response via Deepseek
-    npc_reply = generate_npc_response(data.dialogue, player_sentiment)
-    npc_interaction.npc_reply = npc_reply
+    # Generate new NPC response
+    from llamacpp import generate_npc_response
+    npc_reply_obj = generate_npc_response(
+        data.dialogue, player_sentiment,
+        npc_interaction.player_id, [], player_name, build=build
+    )
+    npc_reply_text = npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
+    npc_interaction.npc_reply = npc_reply_text
 
     # Analyze NPC sentiment
-    npc_interaction.npc_sentiment = analyze_sentiment(npc_reply)
+    npc_interaction.npc_sentiment = analyze_sentiment(npc_reply_text)
 
     db.commit()
     db.refresh(npc_interaction)
     return npc_interaction
 
 #  Delete an NPC interaction
-@app.delete("/delete_interaction/{id}", response_model=NPCMemoryResponse, tags=["Delete"])
-def delete_interaction(id: int, db: Session = Depends(get_db)):
+@app.delete(
+    "/delete_interaction/{id}",
+    response_model=NPCMemoryResponse,
+    tags=["NPC Interactions"],
+    status_code=200
+)
+def delete_interaction(id: int, db: Session = Depends(get_db)) -> NPCMemoryResponse:
     npc_interaction = db.query(NPCMemory).filter(NPCMemory.id == id).first()
 
     if not npc_interaction:
@@ -161,50 +196,58 @@ def delete_interaction(id: int, db: Session = Depends(get_db)):
     db.commit()
     return deleted_data
 
-# Check health status
+# Check health status with database connectivity
 @app.get("/health", tags=["System"])
-def health_check():
-    return {"status": "OK"}
+def health_check(db: Session = Depends(get_db)) -> dict:
+    try:
+        # Test database connection
+        db.execute("SELECT 1")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
 
 # Create a new player
 @app.post("/create_player", response_model=PlayerResponse, tags=["Players"])
-def create_player(player: PlayerCreate, db: Session = Depends(get_db)):
-
+def create_player(player: PlayerCreate, db: Session = Depends(get_db)) -> PlayerResponse:
     existing = db.query(Player).filter(Player.name == player.name).first()
     if existing: 
         raise HTTPException(status_code=400, detail="Player with this name already exists")
     
-    new_player = Player(**player.dict())
-    db.add(new_player)
-    db.commit()
-    db.refresh(new_player)
-    
+    new_player = PlayerService.create_player(db, player)
     return new_player
 
-# Get all players
+# Get all players with pagination
 @app.get("/players", response_model=List[PlayerResponse], tags=["Players"])
-def get_players(db: Session = Depends(get_db)):
-    return db.query(Player).all()
+def get_players(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(
+        config.DEFAULT_PAGE_SIZE,
+        ge=1,
+        le=config.MAX_PAGE_SIZE,
+        description="Maximum records to return"
+    ),
+    db: Session = Depends(get_db)
+) -> List[PlayerResponse]:
+    return PlayerService.get_all_players(db, skip=skip, limit=limit)
 
-@app.get("/chat", response_class=HTMLResponse)
-def get_chat(request: Request, player_id: int = Query(default=None), db: Session = Depends(get_db)):
-    players = db.query(Player).all()
+@app.get("/chat", response_class=HTMLResponse, tags=["Chat Interface"])
+def get_chat(request: Request, player_id: Optional[int] = Query(default=None), db: Session = Depends(get_db)) -> HTMLResponse:
+    players = PlayerService.get_all_players(db, limit=100)
     chat_history = []
 
     latest_build = None
     intro_message = ""
 
     if player_id:
-        chat_history = (
-            db.query(NPCMemory)
-            .filter(NPCMemory.player_id == player_id)
-            .order_by(NPCMemory.timestamp.asc())
-            .all()
-        )
-        latest_build = get_latest_build(player_id, db)
+        chat_history = ChatService.get_conversation_history(db, player_id, limit=50)
+        latest_build = BuildService.get_latest_build(db, player_id)
 
     if latest_build:
-        intro_message = f"Welcome back! I see your current build includes a {latest_build.engine} engine and {latest_build.tires} tires. Need any tweaks?"
+        intro_message = (
+            f"Welcome back! I see your current build includes a "
+            f"{get_short_part_name(latest_build.engine)} engine and "
+            f"{get_short_part_name(latest_build.tires)} tires. Need any tweaks?"
+        )
 
     return templates.TemplateResponse("chat.html", {
         "request": request,
@@ -214,132 +257,129 @@ def get_chat(request: Request, player_id: int = Query(default=None), db: Session
         "intro_message": intro_message
     })
 
-@app.post("/chat", response_class=HTMLResponse)
+@app.post("/chat", response_class=HTMLResponse, tags=["Chat Interface"])
 def post_chat(
     request: Request,
     player_id: int = Form(...),
-    npc_id: int = Form(1),
+    npc_id: int = Form(config.DEFAULT_NPC_ID),
     dialogue: str = Form(...),
     db: Session = Depends(get_db)
-):
-    players = db.query(Player).all()
+) -> HTMLResponse:
+    # Validate player exists
+    player = PlayerService.get_player_by_id(db, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Validate dialogue is not empty
+    if not dialogue or not dialogue.strip():
+        raise HTTPException(status_code=400, detail="Dialogue cannot be empty")
+    
+    players = PlayerService.get_all_players(db, limit=100)
 
-    #Fetches last 3 interactions for player
-    history = (
-        db.query(NPCMemory)
-        .filter(NPCMemory.player_id == player_id)
-        .order_by(NPCMemory.timestamp.desc())
-        .limit(1)
-        .all()
-    )
-    context = list(reversed(history)) #reversing from old to new to fetch the last 2
-
-    sentiment = analyze_sentiment(dialogue)
-    print(f"📊 PLAYER SENTIMENT: '{dialogue}' → {sentiment} ({'positive' if sentiment == 'positive' else 'negative' if sentiment == 'negative' else 'neutral'})")
-    player_name = db.query(Player).filter(Player.id == player_id).first().name
-    npc_reply_obj = generate_npc_response(dialogue, sentiment, player_id, context, player_name)
-    npc_reply_str = json.dumps(npc_reply_obj) if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
-
-    memory = NPCMemory(
-        player_id=player_id,
-        npc_id=1,
-        dialogue=dialogue,
-        sentiment=sentiment,
-        npc_reply=npc_reply_str,
-        npc_sentiment=analyze_sentiment(npc_reply_str)
-    )
-
-    db.add(memory)
+    # Get recent context
+    context = ChatService.get_conversation_history(db, player_id, limit=config.CONTEXT_WINDOW)
+    
+    player_name = player.display_name or player.name or "Player"
+    build = BuildService.get_latest_build(db, player_id)
+    
+    # Create interaction using service (includes sentiment analysis)
     try:
-        db.commit()
+        memory = ChatService.create_interaction(
+            db, player_id, npc_id, dialogue,
+            context, player_name, build
+        )
+        npc_reply_text = memory.npc_reply
+        print(f"📊 PLAYER SENTIMENT: '{dialogue}' → {memory.sentiment}")
     except Exception as e:
         db.rollback()
-        print("DB commit error (post_chat): ", e)
+        print(f"DB commit error (post_chat): {e}")
         raise HTTPException(status_code=500, detail="Database connection issue, please retry")
 
-    chat_history = (
-        db.query(NPCMemory)
-        .filter(NPCMemory.player_id == player_id)
-        .order_by(NPCMemory.timestamp.asc())
-        .all()
-    )
+    chat_history = ChatService.get_conversation_history(db, player_id, limit=50)
 
     return templates.TemplateResponse("chat.html", {
         "request": request,
         "players": players,
-        "npc_reply": npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) else str(npc_reply_obj),
+    "npc_reply": npc_reply_text,
         "last_dialogue": dialogue,
         "selected_player_id": player_id,
         "chat_history": chat_history
     })
 
-@app.post("/chat_api")
+@app.post("/chat_api", tags=["Chat API"])
 async def chat_api(
     request: Request,
     player_id: int = Form(...),
-    npc_id: int = Form(1),
+    npc_id: int = Form(config.DEFAULT_NPC_ID),
     dialogue: str = Form(...),
     db: Session = Depends(get_db)
-):
-    history = (
-        db.query(NPCMemory)
-        .filter(NPCMemory.player_id == player_id)  
-        .order_by(NPCMemory.timestamp.desc())
-        .limit(2)
-        .all()
+) -> JSONResponse:
+    # Validate dialogue
+    if not dialogue or not dialogue.strip():
+        raise HTTPException(status_code=400, detail="Dialogue cannot be empty")
+    
+    # Get conversation history from config
+    context = ChatService.get_conversation_history(
+        db, player_id,
+        limit=config.MAX_CONVERSATION_HISTORY
     )
-    context = list(reversed(history))
 
     start = time.time()
-    sentiment = analyze_sentiment(dialogue)
-    print(f"📊 PLAYER SENTIMENT: '{dialogue}' → {sentiment} ({'positive' if sentiment == 'positive' else 'negative' if sentiment == 'negative' else 'neutral'})")  
-    print("Sentiment analysis took:", round(time.time() - start, 2), "s")
-    player_obj = db.query(Player).filter(Player.id == player_id).first()
-    player_name = player_obj.display_name or player_obj.name
-    build = get_latest_build(player_id, db)
-    llm_start = time.time()
-    npc_reply_obj = generate_npc_response(dialogue, sentiment, player_id, context, player_name, build=build)
-    npc_reply_str = json.dumps(npc_reply_obj) if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
-
-    llm_duration = round(time.time() - llm_start, 2)
-    print(f"⏱️ LLM generation took: {llm_duration}s")
     
-    commit_start = time.time()
-    memory = NPCMemory(
-        player_id=player_id,
-        npc_id=1,
-        dialogue=dialogue,
-        sentiment=sentiment,
-        npc_reply=npc_reply_str,
-        npc_sentiment=analyze_sentiment(npc_reply_str)
-    )
-    db.add(memory)
-    db.commit()
-    print("🗃️ DB commit took:", round(time.time() - commit_start, 2), "s")
-
-    return JSONResponse(content={
-        "player_dialogue": dialogue,
-        "npc_reply": npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
+    # Get or create player
+    player_obj = PlayerService.get_player_by_id(db, player_id)
+    if not player_obj:
+        print(f"⚠️ Player {player_id} not found, creating default player")
+        player_data = PlayerCreate(
+            name=f"Player{player_id}",
+            display_name=f"Player{player_id}"
+        )
+        player_obj = PlayerService.create_player(db, player_data)
+    
+    player_name = player_obj.display_name or player_obj.name or "Player"
+    build = BuildService.get_latest_build(db, player_id)
+    
+    llm_start = time.time()
+    
+    # Use service to create interaction (handles sentiment + NPC reply)
+    try:
+        memory = ChatService.create_interaction(
+            db, player_id, npc_id, dialogue,
+            context, player_name, build
+        )
+        
+        llm_duration = round(time.time() - llm_start, 2)
+        print(f"📊 PLAYER SENTIMENT: '{dialogue}' → {memory.sentiment}")
+        print(f"⏱️ Total processing took: {llm_duration}s")
+        
+        return JSONResponse(content={
+            "player_dialogue": dialogue,
+            "npc_reply": memory.npc_reply,
+            "sentiment": memory.sentiment,
+            "generation_time": llm_duration
         })
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in chat_api: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
-@app.get("/create_player_form", response_class=HTMLResponse)
+@app.get("/create_player_form", response_class=HTMLResponse, tags=["Players"])
 def player_form(request: Request):
     return templates.TemplateResponse("create_player.html", {"request": request})
 
-@app.post("/create_player_form")
+@app.post("/create_player_form", tags=["Players"])
 def create_player_from_form(
     request: Request,
     name: str = Form(...),
     pin: str = Form(...),
     db: Session = Depends(get_db)
-):
+) -> HTMLResponse:
     new_uuid = str(uuid4())
-    hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
-
-    new_player = Player(name=new_uuid, role=hashed_pin, display_name=name)
-    db.add(new_player)
-    db.commit()
-    db.refresh(new_player)
+    
+    # Use service with bcrypt hashing
+    new_player = PlayerService.create_player_with_credentials(
+        db, new_uuid, pin, name
+    )
 
     return templates.TemplateResponse("player_created.html", {
         "request": request,
@@ -348,32 +388,21 @@ def create_player_from_form(
         "display_name": name
     })
 
-@app.get("/chat_static", response_class=HTMLResponse)
-def get_static_chat(request: Request, db: Session = Depends(get_db)):
-    players = db.query(Player).all()
+@app.get("/chat_static", response_class=HTMLResponse, tags=["Chat Interface"])
+def get_static_chat(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    players = PlayerService.get_all_players(db, limit=100)
     return templates.TemplateResponse("chat_static.html", {
         "request": request,
         "players": players
     })
 
-@app.post("/chat_api_static")
-async def chat_api_static(
-    request = Request,
-    player_id: int = Form(...),
-    npc_id: int = Form(...),
-    dialogue: str = Form(...),
-    db : Session = Depends(get_db)
-):
-    response = turbotom_response(dialogue, player_id, db)
-    return JSONResponse(content={
-        "player_dialogue": dialogue,
-        "npc_reply": response}
-    )
-
-
-@app.get("/build", response_class=HTMLResponse)
-def get_build(request: Request, db: Session = Depends(get_db), player_id: int = Query(default=None)):
-    players = db.query(Player).all()
+@app.get("/build", response_class=HTMLResponse, tags=["Car Builds"])
+def get_build(
+    request: Request,
+    db: Session = Depends(get_db),
+    player_id: Optional[int] = Query(default=None)
+) -> HTMLResponse:
+    players = PlayerService.get_all_players(db, limit=100)
     players_json = jsonable_encoder(players)
     if not player_id and players:
         player_id = players[0].id  # default to first player
@@ -383,120 +412,118 @@ def get_build(request: Request, db: Session = Depends(get_db), player_id: int = 
         "selected_player_id": player_id
     })
 
-@app.post("/save_car_build")
+@app.post("/save_car_build", tags=["Car Builds"])
 async def save_car_build(
     player_id: int = Form(...),
     chassis: str = Form(...),
     engine: str = Form(...),
     tires: str = Form(...),
-    frontWing: str = Form(...),
-    rearWing: str = Form(...),
+    frontWing: str = Form(..., alias="frontWing"),  # Accept camelCase from frontend
+    rearWing: str = Form(..., alias="rearWing"),    # Accept camelCase from frontend
     db: Session = Depends(get_db)
-):
-    build = CarBuild(
-        player_id=player_id,
-        chassis=chassis,
-        engine=engine,
-        tires=tires,
-        frontWing=frontWing,
-        rearWing=rearWing
-    )
-
-    db.add(build)
+) -> dict:
+    # Validate player exists
+    player = PlayerService.get_player_by_id(db, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
     try:
-        db.commit()
+        build = BuildService.create_build(
+            db, player_id, chassis, engine, tires,
+            frontWing, rearWing  # Pass as-is, service converts to snake_case
+        )
+        return {"status": "success", "message": "Build saved successfully!", "build_id": build.id}
     except Exception as e:
         db.rollback()
+        print(f"❌ Error saving build: {e}")
         raise HTTPException(status_code=500, detail="Database error while saving build.")
 
-    return {"status": "success", "message": "Build saved successfully!"}
+@app.get("/get_builds/{player_id}", tags=["Car Builds"])
+def get_player_builds(
+    player_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(config.DEFAULT_PAGE_SIZE, ge=1, le=config.MAX_PAGE_SIZE),
+    db: Session = Depends(get_db)
+) -> List[CarBuild]:
+    builds = BuildService.get_player_builds(db, player_id, skip=skip, limit=limit)
+    return builds if builds else []
 
-@app.get("/get_builds/{player_id}")
-def get_player_builds(player_id: int, db: Session = Depends(get_db)):
-    return db.query(CarBuild).filter(CarBuild.player_id == player_id).all()
-
-def get_latest_build(player_id: int, db: Session): #Most recent build (for chat context)
-    build = (
-        db.query(CarBuild)
-        .filter(CarBuild.player_id == player_id)
-        .order_by(CarBuild.id.desc())
-        .first()
-    )
-    return build
-
-@app.get("/start_chat")
-def start_chat(player_id: int = Query(...), db: Session = Depends(get_db)):
+@app.get("/start_chat", tags=["Navigation"])
+def start_chat(player_id: int = Query(...), db: Session = Depends(get_db)) -> RedirectResponse:
     npc = random.choice(["dax", "static"])
     if npc == "dax":
         return RedirectResponse(f"/chat?player_id={player_id}")
     return RedirectResponse(f"/chat_static?player_id={player_id}")
 
-@app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
+@app.get("/login", response_class=HTMLResponse, tags=["Authentication"])
+def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("login.html", {"request": request})
 
-@app.get("/evaluation", response_class=HTMLResponse)
-def evaluation_page(request: Request):
+@app.get("/evaluation", response_class=HTMLResponse, tags=["Evaluation"])
+def evaluation_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("evaluation.html", {"request": request})
 
-@app.get("/verify_player")
-def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)):
+@app.get("/verify_player", tags=["Authentication"])
+def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)) -> dict:
     try:
         UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
-    hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
-    player = db.query(Player).filter(Player.name == uuid, Player.role == hashed_pin).first()
+    # Use service with bcrypt verification
+    player = PlayerService.verify_player_credentials(db, uuid, pin)
 
     if not player:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     return {"player_id": player.id}
 
-@app.post("/store_consent")
-def store_consent(consent_data: dict):
+@app.post("/store_consent", response_model=ConsentResponse, tags=["Evaluation"])
+def store_consent(consent_data: ConsentCreate, db: Session = Depends(get_db)) -> ConsentResponse:
+    """Store user consent data to database.
+    
+    Args:
+        consent_data: Validated consent data
+        db: Database session
+        
+    Returns:
+        Created consent record
+    """
     try:
-        # Define CSV file path
-        csv_file = "consent_data.csv"
+        # Verify player exists
+        player = PlayerService.get_player_by_id(db, consent_data.player_id)
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
         
-        # Check if file exists to determine if we need headers
-        file_exists = os.path.isfile(csv_file)
+        # Use service to create consent record
+        consent = ConsentService.create_consent(db, consent_data)
         
-        # Prepare the data row
-        row_data = {
-            'timestamp': consent_data.get('consent_timestamp'),
-            'player_id': consent_data.get('player_id'),
-            'study_uuid': consent_data.get('study_uuid'),
-            'name': consent_data.get('name'),
-            'course': consent_data.get('course'),
-            'bth_email': consent_data.get('bth_email', ''),
-            'gender': consent_data.get('gender', ''),
-            'current_year': consent_data.get('current_year'),
-            'origin': consent_data.get('origin'),
-            'gaming_experience': consent_data.get('gaming_experience'),
-            'ai_familiarity': consent_data.get('ai_familiarity'),
-            'consent_participate': consent_data.get('consent_participate'),
-            'consent_data': consent_data.get('consent_data'),
-            'consent_age': consent_data.get('consent_age'),
-            'consent_future': consent_data.get('consent_future', False),
-            'consent_results': consent_data.get('consent_results', False)
-        }
+        print(f"📋 Consent stored to database for {consent.name} (Player {consent.player_id})")
+        return consent
         
-        # Write to CSV
-        with open(csv_file, 'a', newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=row_data.keys())
-            
-            # Write header if file is new
-            if not file_exists:
-                writer.writeheader()
-            
-            # Write the data
-            writer.writerow(row_data)
-        
-        print(f"📋 Consent stored to CSV for {consent_data.get('name')} (Player {consent_data.get('player_id')})")
-        return {"status": "success"}
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"❌ Error storing consent to CSV: {e}")
-        return {"status": "error", "message": str(e)}
+        db.rollback()
+        print(f"❌ Error storing consent: {e}")
+        raise HTTPException(status_code=500, detail=f"Error storing consent: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    print(f"🚀 Starting {config.APP_NAME} v{config.APP_VERSION}...")
+    print("📱 Model loaded successfully!")
+    print("🗄️ Database connection verified!")
+    print(f"🌐 Server: {config.HOST}:{config.PORT}")
+    print(f"🔧 Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    try:
+        uvicorn.run(
+            app,
+            host=config.HOST,
+            port=config.PORT,
+            reload=config.RELOAD,
+            log_level=config.LOG_LEVEL.lower()
+        )
+    except Exception as e:
+        print(f"❌ Server error: {e}")
+        import traceback
+        traceback.print_exc()

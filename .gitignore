@@ -1,5 +1,54 @@
+# Environment variables
 .env
+
+# Python virtual environment
 .venv/
+venv/
+env/
+
+# Python cache and compiled files
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# GGUF models (too large for git)
 models/*.gguf
+
+# Sensitive data files - NEVER COMMIT
+consent_data.csv
+selection_log.csv
+database.bak
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Package metadata
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db
+desktop.ini

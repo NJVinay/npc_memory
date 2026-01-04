@@ -1,13 +1,39 @@
-fastapi
-uvicorn
-sqlalchemy
-psycopg2
-pydantic
-Jinja2
-aiofiles
-python-dotenv
-transformers
-torch
-scikit-learn
-httpx
-python-multipart
+# Web Framework
+fastapi>=0.109.0,<0.110.0
+uvicorn[standard]>=0.27.0,<0.28.0
+
+# Database
+sqlalchemy>=2.0.25,<3.0.0
+psycopg2-binary>=2.9.9,<3.0.0
+
+# Security
+bcrypt>=4.1.0,<5.0.0
+
+# Data Validation & Serialization
+pydantic>=2.5.0,<3.0.0
+
+# Templates & Static Files
+Jinja2>=3.1.3,<4.0.0
+aiofiles>=23.2.1,<24.0.0
+python-multipart>=0.0.6,<0.1.0
+
+# Environment Configuration
+python-dotenv>=1.0.1,<2.0.0
+
+# AI/ML Models
+transformers>=4.36.0,<5.0.0
+torch>=2.1.0,<3.0.0
+# Local model (skip on free tier deployments)
+llama-cpp-python==0.3.15; platform_system != "Linux"
+
+# External LLM APIs (for free tier deployment)
+groq>=0.4.0  # Free: 30 requests/min
+openai>=1.0.0  # $5 free credits for new users
+requests>=2.31.0  # For Hugging Face API
+
+# Text Processing
+textblob>=0.18.0,<0.19.0
+
+# Removed unused dependencies:
+# - scikit-learn (not used anywhere)
+# - httpx (not used anywhere)
