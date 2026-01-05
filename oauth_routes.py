@@ -2,6 +2,7 @@
 OAuth 2.0 & JWT Authentication Routes
 """
 
+import os
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from fastapi.responses import RedirectResponse
@@ -14,6 +15,9 @@ from auth import (
 from database import SessionLocal
 from models import Player
 from schemas import PlayerCreate
+
+# Check if running in production
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -136,7 +140,7 @@ async def oauth_callback(provider: str, code: str, request: Request, db: Session
         key="access_token",
         value=access_token_jwt,
         httponly=True,
-        secure=False,  # Set to True in production with HTTPS
+        secure=IS_PRODUCTION,  # True in production with HTTPS
         samesite="lax",
         max_age=900  # 15 minutes
     )
@@ -144,7 +148,7 @@ async def oauth_callback(provider: str, code: str, request: Request, db: Session
         key="refresh_token",
         value=refresh_token_jwt,
         httponly=True,
-        secure=False,  # Set to True in production with HTTPS
+        secure=IS_PRODUCTION,  # True in production with HTTPS
         samesite="lax",
         max_age=604800  # 7 days
     )
@@ -172,7 +176,7 @@ async def refresh_access_token(request: Request, response: Response):
         key="access_token",
         value=new_access_token,
         httponly=True,
-        secure=False,  # Set to True in production with HTTPS
+        secure=IS_PRODUCTION,  # True in production with HTTPS
         samesite="lax",
         max_age=900
     )
