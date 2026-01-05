@@ -39,7 +39,7 @@ class Config:
     MODEL_N_CTX: int = int(os.getenv("MODEL_N_CTX", "4096"))  # Optimized for 16GB RAM
     MODEL_N_BATCH: int = int(os.getenv("MODEL_N_BATCH", "128"))
     MODEL_TEMPERATURE: float = float(os.getenv("MODEL_TEMPERATURE", "0.4"))
-    MODEL_MAX_TOKENS: int = int(os.getenv("MODEL_MAX_TOKENS", "80"))
+    MODEL_MAX_TOKENS: int = int(os.getenv("MODEL_MAX_TOKENS", "150"))
     
     # Sentiment Analysis Settings
     SENTIMENT_MODEL: str = os.getenv(
@@ -62,10 +62,6 @@ class Config:
     # Pagination Settings
     DEFAULT_PAGE_SIZE: int = int(os.getenv("DEFAULT_PAGE_SIZE", "50"))
     MAX_PAGE_SIZE: int = int(os.getenv("MAX_PAGE_SIZE", "100"))
-    
-    # File Storage
-    CONSENT_CSV_FILE: str = os.getenv("CONSENT_CSV_FILE", "consent_data.csv")
-    SELECTION_LOG_FILE: str = os.getenv("SELECTION_LOG_FILE", "selection_log.csv")
     
     # Logging Settings
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

@@ -6,6 +6,10 @@ import time
 from typing import List, Optional
 from uuid import UUID, uuid4
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Third-party imports
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, Query
 from fastapi.encoders import jsonable_encoder
@@ -28,6 +32,7 @@ from schemas import (
 )
 from services import PlayerService, ChatService, BuildService, ConsentService
 from sentiment import analyze_sentiment
+from oauth_routes import router as oauth_router
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
 
@@ -47,6 +52,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include OAuth routes
+app.include_router(oauth_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -372,20 +380,34 @@ def player_form(request: Request):
 def create_player_from_form(
     request: Request,
     name: str = Form(...),
-    pin: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
     db: Session = Depends(get_db)
 ) -> HTMLResponse:
-    new_uuid = str(uuid4())
+    # Check if email already exists
+    existing_player = db.query(Player).filter(Player.email == email).first()
+    if existing_player:
+        raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Use service with bcrypt hashing
-    new_player = PlayerService.create_player_with_credentials(
-        db, new_uuid, pin, name
+    # Hash password with bcrypt
+    import bcrypt
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Create player with email + password
+    new_player = Player(
+        name=str(uuid4()),  # Generate UUID for internal use
+        email=email,
+        display_name=name,
+        pin_hash=hashed_password
     )
+    db.add(new_player)
+    db.commit()
+    db.refresh(new_player)
 
     return templates.TemplateResponse("player_created.html", {
         "request": request,
         "player_id": new_player.id,
-        "uuid": new_uuid, 
+        "email": email,
         "display_name": name
     })
 
@@ -416,11 +438,11 @@ def get_build(
 @app.post("/save_car_build", tags=["Car Builds"])
 async def save_car_build(
     player_id: int = Form(...),
-    chassis: str = Form(...),
-    engine: str = Form(...),
-    tires: str = Form(...),
-    frontWing: str = Form(..., alias="frontWing"),  # Accept camelCase from frontend
-    rearWing: str = Form(..., alias="rearWing"),    # Accept camelCase from frontend
+    chassis: str = Form(""),  # Allow empty values for partial builds
+    engine: str = Form(""),
+    tires: str = Form(""),
+    frontWing: str = Form("", alias="frontWing"),
+    rearWing: str = Form("", alias="rearWing"),
     db: Session = Depends(get_db)
 ) -> dict:
     # Validate player exists
@@ -429,9 +451,16 @@ async def save_car_build(
         raise HTTPException(status_code=404, detail="Player not found")
     
     try:
+        # Convert empty strings to None for database storage
+        chassis = chassis if chassis else None
+        engine = engine if engine else None
+        tires = tires if tires else None
+        frontWing = frontWing if frontWing else None
+        rearWing = rearWing if rearWing else None
+        
         build = BuildService.create_build(
             db, player_id, chassis, engine, tires,
-            frontWing, rearWing  # Pass as-is, service converts to snake_case
+            frontWing, rearWing
         )
         return {"status": "success", "message": "Build saved successfully!", "build_id": build.id}
     except Exception as e:
@@ -460,22 +489,27 @@ def start_chat(player_id: int = Query(...), db: Session = Depends(get_db)) -> Re
 def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("login.html", {"request": request})
 
+@app.get("/terms", response_class=HTMLResponse, tags=["Legal"])
+def terms_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("terms.html", {"request": request})
+
 @app.get("/evaluation", response_class=HTMLResponse, tags=["Evaluation"])
 def evaluation_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("evaluation.html", {"request": request})
 
-@app.get("/verify_player", tags=["Authentication"])
-def verify_player(uuid: str, pin: str, db: Session = Depends(get_db)) -> dict:
-    try:
-        UUID(uuid)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid UUID format")
+@app.post("/verify_player", tags=["Authentication"])
+def verify_player(credentials: dict, db: Session = Depends(get_db)) -> dict:
+    email = credentials.get("email")
+    password = credentials.get("password")
+    
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password required")
 
     # Use service with bcrypt verification
-    player = PlayerService.verify_player_credentials(db, uuid, pin)
+    player = PlayerService.verify_player_email_password(db, email, password)
 
     if not player:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     return {"player_id": player.id}
 
@@ -511,11 +545,11 @@ def store_consent(consent_data: ConsentCreate, db: Session = Depends(get_db)) ->
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"🚀 Starting {config.APP_NAME} v{config.APP_VERSION}...")
-    print("📱 Model loaded successfully!")
-    print("🗄️ Database connection verified!")
-    print(f"🌐 Server: {config.HOST}:{config.PORT}")
-    print(f"🔧 Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    print(f"Starting {config.APP_NAME} v{config.APP_VERSION}...")
+    print("Model loaded successfully!")
+    print("Database connection verified!")
+    print(f"Server: {config.HOST}:{config.PORT}")
+    print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
     try:
         uvicorn.run(
             app,

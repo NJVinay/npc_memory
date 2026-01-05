@@ -308,9 +308,20 @@
             prevBtn.onclick = () => { if (current > 0) showStep(--current); };
             nextBtn.onclick = () => {
                 if (current < steps.length - 1) showStep(++current);
-                else window.location.href = localStorage.getItem('player_id')
-                    ? `/start_chat?player_id=${localStorage.getItem('player_id')}`
-                    : '/login';
+                else {
+                    // Get player_id from URL query param or localStorage
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const playerIdFromUrl = urlParams.get('player_id');
+                    
+                    if (playerIdFromUrl) {
+                        localStorage.setItem('player_id', playerIdFromUrl);
+                    }
+                    
+                    const playerId = localStorage.getItem('player_id');
+                    window.location.href = playerId
+                        ? `/start_chat?player_id=${playerId}`
+                        : '/login';
+                }
             };
 
             showStep(0);

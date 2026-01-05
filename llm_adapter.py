@@ -6,6 +6,10 @@ Enables free tier deployment by using Groq/OpenAI/Hugging Face APIs
 import os
 from typing import Dict, Union
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 # Configuration
 USE_EXTERNAL_LLM = os.getenv("USE_EXTERNAL_LLM", "false").lower() == "true"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()

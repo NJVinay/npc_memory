@@ -123,11 +123,16 @@
     <div id="eval-modal">
         <h2>You're all set!</h2>
         <p>
-            Thanks for participating. Please submit your feedback to help us improve.
+            Thanks for participating. Please submit your feedback to help me improve.
         </p>
-        <a href="https://forms.gle/5rh8SUgVhnP58tns8?player_id={{ request.query_params.player_id }}" target="_blank">
-            📝 Submit Feedback
-        </a>
+        <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center;">
+            <a href="https://forms.gle/5rh8SUgVhnP58tns8?player_id={{ request.query_params.player_id }}" target="_blank">
+                📝 Submit Feedback
+            </a>
+            <a href="https://jyotirvinay-portfolio.netlify.app/" target="_blank" style="background: #111; border: 2px solid #ffcc00; color: #ffcc00;">
+                🏠 Head Back to Portfolio
+            </a>
+        </div>
     </div>
 
 {% endblock %}

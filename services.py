@@ -70,7 +70,7 @@ class PlayerService:
         try:
             new_player = Player(
                 name=uuid,
-                role=hashed_pin,
+                pin_hash=hashed_pin,
                 display_name=display_name
             )
             db.add(new_player)
@@ -84,7 +84,7 @@ class PlayerService:
     
     @staticmethod
     def verify_player_credentials(db: Session, uuid: str, pin: str) -> Optional[Player]:
-        """Verify player credentials with bcrypt.
+        """Verify player credentials with bcrypt (legacy UUID + PIN).
         
         Args:
             db: Database session
@@ -96,16 +96,43 @@ class PlayerService:
         """
         player = db.query(Player).filter(Player.name == uuid).first()
         
-        if not player or not player.role:
+        if not player or not player.pin_hash:
             return None
         
         # Verify PIN with bcrypt
         try:
-            if bcrypt.checkpw(pin.encode('utf-8'), player.role.encode('utf-8')):
+            if bcrypt.checkpw(pin.encode('utf-8'), player.pin_hash.encode('utf-8')):
                 return player
         except (ValueError, AttributeError) as e:
             # Handle legacy SHA256 hashes or invalid formats
             print(f"⚠️ Legacy/invalid hash format for player {uuid}: {e}")
+            pass
+        
+        return None
+    
+    @staticmethod
+    def verify_player_email_password(db: Session, email: str, password: str) -> Optional[Player]:
+        """Verify player credentials using email + password (OAuth fallback).
+        
+        Args:
+            db: Database session
+            email: Player's email address
+            password: Plain text password to verify
+            
+        Returns:
+            Player object if credentials valid, None otherwise
+        """
+        player = db.query(Player).filter(Player.email == email).first()
+        
+        if not player or not player.pin_hash:
+            return None
+        
+        # Verify password with bcrypt
+        try:
+            if bcrypt.checkpw(password.encode('utf-8'), player.pin_hash.encode('utf-8')):
+                return player
+        except (ValueError, AttributeError) as e:
+            print(f"⚠️ Invalid hash format for player {email}: {e}")
             pass
         
         return None

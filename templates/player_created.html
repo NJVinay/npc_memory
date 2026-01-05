@@ -2,69 +2,95 @@
 <html>
 
 <head>
-    <title>✅ Racer Registered</title>
+    <title>Account Created - AI Racing Engineer</title>
     <style>
         body {
             background-image: url('/static/images/start_line.jpg');
             background-size: cover;
             background-position: center;
-            font-family: 'Orbitron', sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             color: white;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            margin: 0;
         }
 
         .card {
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.85);
             padding: 40px;
-            border-radius: 12px;
+            border-radius: 15px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 30px rgba(255, 204, 0, 0.4);
+            border: 1px solid rgba(255, 204, 0, 0.3);
             width: 480px;
         }
 
         h2 {
             color: #ffcc00;
-            font-size: 28px;
-            margin-bottom: 15px;
+            font-size: 26px;
+            margin-bottom: 20px;
+        }
+
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
         }
 
         .info {
-            color: #0f0;
-            font-size: 17px;
-            margin-bottom: 10px;
+            color: #68d8ac;
+            font-size: 16px;
+            margin: 12px 0;
+            line-height: 1.5;
+        }
+
+        .info strong {
+            color: #96cc31;
+        }
+
+        .note {
+            color: #aaa;
+            font-size: 13px;
+            margin: 20px 0;
+            line-height: 1.4;
         }
 
         .btn {
-            margin-top: 20px;
-            padding: 12px 24px;
-            background-color: #ffcc00;
+            margin-top: 25px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #ffcc00, #ffd700);
             color: black;
-            font-weight: bold;
+            font-weight: 600;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             text-decoration: none;
             display: inline-block;
+            transition: all 0.3s ease;
         }
 
         .btn:hover {
-            background-color: #ffe066;
+            background: linear-gradient(135deg, #ffd700, #ffdc00);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 204, 0, 0.4);
         }
     </style>
+    <script>
+        // Store player_id in localStorage for cover page
+        localStorage.setItem('player_id', '{{ player_id }}');
+    </script>
 </head>
 
 <body>
     <div class="card">
-        <h2>✅ Racer Registered!</h2>
-        <p class="info">Display Name: <strong>{{ display_name }}</strong></p>
-        <p class="info">Your Unique Link ID: <strong>{{ uuid }}</strong></p>
-        <p class="info">Internal Player ID: <strong>{{ player_id }}</strong></p>
-
-        <a class="btn" href="/login">🚦 Proceed to Login</a>
+        <div class="success-icon">✅</div>
+        <h2>Account Created Successfully!</h2>
+        <p class="info">Name: <strong>{{ display_name }}</strong></p>
+        <p class="info">Email: <strong>{{ email }}</strong></p>
+        <p class="note">Your account has been created. Get ready to build your F1 car!</p>
+        <a class="btn" href="/cover">Start Building →</a>
     </div>
 </body>
 

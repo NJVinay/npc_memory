@@ -36,10 +36,10 @@ class Player(Base):
     __tablename__ = "players"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(255), unique=True, index=True, nullable=False)
-    email = Column(String(255), nullable=True)
-    role = Column(Text, default="player")  # Stores bcrypt hash or role - Text for flexibility
-    display_name = Column(String(255), nullable=True)
+    name = Column(String(255), unique=True, index=True, nullable=False)  # Account ID
+    email = Column(String(255), unique=True, index=True, nullable=True)  # Unique email for OAuth
+    pin_hash = Column(Text, nullable=True)  # Bcrypt hash for email+password auth
+    display_name = Column(String(255), nullable=True)  # User's real name
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Relationships

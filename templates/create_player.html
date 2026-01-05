@@ -2,13 +2,13 @@
 <html>
 
 <head>
-  <title>🏁 Register Your Racer</title>
+  <title>Create Account - AI Racing Engineer</title>
   <style>
     body {
       background-image: url("/static/images/start_line.jpg");
       background-size: cover;
       background-position: center;
-      font-family: 'Orbitron', sans-serif;
+      font-family: 'Segoe UI', sans-serif;
       color: #fff;
       margin: 0;
       padding: 0;
@@ -19,68 +19,126 @@
     }
 
     .register-box {
-      background: rgba(0, 0, 0, 0.7);
-      padding: 40px;
-      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 35px 40px;
+      border-radius: 15px;
       width: 420px;
-      box-shadow: 0 0 20px rgba(255, 204, 0, 0.4);
-      text-align: center;
+      box-shadow: 0 0 30px rgba(255, 204, 0, 0.4);
+      border: 1px solid rgba(255, 204, 0, 0.3);
     }
 
     .register-box h2 {
       color: #ffcc00;
-      font-size: 28px;
-      margin-bottom: 20px;
+      font-size: 24px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .register-box p {
+      color: #68d8ac;
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #68d8ac;
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 14px;
     }
 
     input {
-      width: 90%;
-      padding: 12px;
-      margin: 12px 0;
-      border: none;
-      border-radius: 6px;
-      background-color: rgba(255, 255, 255, 0.1);
-      color: white;
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid rgba(255, 204, 0, 0.3);
+      border-radius: 8px;
+      background-color: rgba(0, 0, 0, 0.6);
+      color: #96cc31;
       font-size: 15px;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #ffcc00;
+      box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
     }
 
     input::placeholder {
-      color: #ccc;
+      color: #888;
     }
 
     button {
+      width: 100%;
       margin-top: 20px;
-      padding: 12px 30px;
-      font-size: 16px;
-      font-weight: bold;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
       border: none;
-      border-radius: 6px;
-      background-color: #ffcc00;
-      color: #111;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ffcc00, #ffd700);
+      color: #000;
       cursor: pointer;
+      transition: all 0.3s ease;
     }
 
     button:hover {
-      background-color: #ffe066;
+      background: linear-gradient(135deg, #ffd700, #ffdc00);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 204, 0, 0.4);
     }
 
     .note {
       margin-top: 20px;
+      font-size: 12px;
+      color: #aaa;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 15px;
+      color: #68d8ac;
+      text-decoration: none;
       font-size: 13px;
-      color: #ccc;
+    }
+
+    .back-link:hover {
+      color: #ffcc00;
     }
   </style>
 </head>
 
 <body>
   <div class="register-box">
-    <h2>🎮 Race Registration</h2>
+    <h2>Create Account</h2>
+    <p>Join the AI Racing Engineer platform</p>
     <form action="/create_player_form" method="post">
-      <input type="text" name="name" placeholder="Enter your display name" required autocomplete="off">
-      <input type="password" name="pin" placeholder="Choose a 4-digit PIN" minlength="4" maxlength="4" pattern="\d{4}" required autocomplete="new-password">
-      <button type="submit">🚀 Start My Engine</button>
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" placeholder="Enter your name" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" placeholder="Enter your email" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Choose a secure password" minlength="8" required autocomplete="new-password">
+      </div>
+      <button type="submit">Create Account</button>
     </form>
-    <p class="note">You'll receive a unique ID after registration. Keep your PIN safe.</p>
+    <p class="note">Your password will be securely encrypted using bcrypt.<br>Minimum 8 characters required.</p>
+    <a href="/login" class="back-link">← Back to Login</a>
   </div>
 </body>
 

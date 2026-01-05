@@ -16,9 +16,7 @@ __pycache__/
 # GGUF models (too large for git)
 models/*.gguf
 
-# Sensitive data files - NEVER COMMIT
-consent_data.csv
-selection_log.csv
+# Database backup files
 database.bak
 *.db
 *.sqlite

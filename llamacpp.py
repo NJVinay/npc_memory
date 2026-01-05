@@ -2,6 +2,10 @@ from typing import Dict, List, Optional, Any
 import time
 import os
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 from textblob import TextBlob
 
 # Check if we should use external LLM
@@ -297,7 +301,7 @@ def generate_npc_response(
         # Check if we should use external API
         if USE_EXTERNAL_LLM:
             from llm_adapter import generate_llm_response
-            llm_result = generate_llm_response(full_prompt, max_tokens=80, temperature=0.4)
+            llm_result = generate_llm_response(full_prompt, max_tokens=150, temperature=0.4)
             reply_text = llm_result.get("response", "I'm having trouble generating a response.")
         elif llm is None:
             reply_text = "I'm Dax, your F1 mechanic. The local model isn't available right now."
@@ -305,7 +309,7 @@ def generate_npc_response(
             # Use local GGUF model
             output = llm(
                 full_prompt,
-                max_tokens=80,
+                max_tokens=150,
                 temperature=0.4,
                 stop=["Player:", "Human:", "Dax:", "\n\n", "Corvette", "Porsche", "Audi", "Ferrari"],
                 echo=False,
