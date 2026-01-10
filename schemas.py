@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional
+import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, EmailStr
 
 
 # =============================================================================
@@ -65,9 +66,10 @@ class NPCMemoryResponse(NPCMemoryCreate):
 # =============================================================================
 
 class PlayerCreate(BaseModel):
-    """Schema for creating a new player."""
+    """Schema for creating a new player with enhanced validation."""
     name: str = Field(..., min_length=1, max_length=255, description="Unique player identifier")
-    email: Optional[str] = Field(None, max_length=255, description="Player email (optional)")
+    email: Optional[EmailStr] = Field(None, description="Valid email address")
+    password: Optional[str] = Field(None, min_length=8, max_length=128, description="Strong password (min 8 chars)")
     role: Optional[str] = Field("player", max_length=50, description="Player role")
     display_name: Optional[str] = Field(None, max_length=255, description="Human-readable display name")
     
@@ -77,6 +79,19 @@ class PlayerCreate(BaseModel):
         if v is not None and not v.strip():
             raise ValueError("Name fields cannot be empty or whitespace only")
         return v.strip() if v else v
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r'[A-Za-z]', v):
+            raise ValueError("Password must contain at least one letter")
+        if not re.search(r'\d', v):
+            raise ValueError("Password must contain at least one number")
+        return v
 
 
 class PlayerResponse(BaseModel):

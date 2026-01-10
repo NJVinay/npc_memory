@@ -158,7 +158,7 @@ async def oauth_callback(provider: str, code: str, request: Request, db: Session
 
 @router.post("/token/refresh")
 async def refresh_access_token(request: Request, response: Response):
-    """Refresh access token using refresh token."""
+    """Refresh access token using refresh token with rotation."""
     refresh_token = request.cookies.get("refresh_token")
     
     if not refresh_token:
@@ -167,9 +167,10 @@ async def refresh_access_token(request: Request, response: Response):
     # Verify refresh token
     payload = verify_token(refresh_token, "refresh")
     
-    # Create new access token
+    # Create new access token AND rotate refresh token
     token_data = {"sub": payload["sub"], "email": payload["email"], "name": payload["name"]}
     new_access_token = create_access_token(token_data)
+    new_refresh_token = create_refresh_token(token_data)  # Rotate refresh token
     
     # Set new access token
     response.set_cookie(
@@ -179,6 +180,16 @@ async def refresh_access_token(request: Request, response: Response):
         secure=IS_PRODUCTION,  # True in production with HTTPS
         samesite="lax",
         max_age=900
+    )
+    
+    # Set new refresh token (rotation)
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=IS_PRODUCTION,
+        samesite="lax",
+        max_age=604800  # 7 days
     )
     
     return {"message": "Token refreshed successfully"}

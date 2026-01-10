@@ -18,6 +18,9 @@ from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Local imports
 from config import config
@@ -36,6 +39,9 @@ from oauth_routes import router as oauth_router
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Initialize FastAPI app with metadata
 app = FastAPI(
     title=config.APP_NAME,
@@ -44,6 +50,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Add rate limit handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -316,6 +326,7 @@ def post_chat(
     })
 
 @app.post("/chat_api", tags=["Chat API"])
+@limiter.limit("30/minute")  # Groq free tier limit
 async def chat_api(
     request: Request,
     player_id: int = Form(...),
@@ -377,6 +388,7 @@ def player_form(request: Request):
     return templates.TemplateResponse("create_player.html", {"request": request})
 
 @app.post("/create_player_form", tags=["Players"])
+@limiter.limit("3/minute")  # Prevent spam registrations
 def create_player_from_form(
     request: Request,
     name: str = Form(...),
@@ -498,7 +510,8 @@ def evaluation_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("evaluation.html", {"request": request})
 
 @app.post("/verify_player", tags=["Authentication"])
-def verify_player(credentials: dict, db: Session = Depends(get_db)) -> dict:
+@limiter.limit("5/minute")  # Prevent brute force attacks
+def verify_player(request: Request, credentials: dict, db: Session = Depends(get_db)) -> dict:
     email = credentials.get("email")
     password = credentials.get("password")
     
