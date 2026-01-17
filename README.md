@@ -1,7 +1,6 @@
 # 🏎️ F1 Car Builder with AI Race Engineer
 
 **Live Demo:** https://npc-memory-webservice.onrender.com  
-**GitHub Repository:** https://github.com/NJVinay/npc_memory
 
 ---
 
@@ -496,4 +495,5 @@ This project is developed for academic research and portfolio purposes.
 ---
 
 **Built with ❤️ for the F1 racing community and AI enthusiasts**
+
 
