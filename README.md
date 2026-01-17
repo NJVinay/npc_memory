@@ -1,5 +1,12 @@
 # 🏎️ F1 Car Builder with AI Race Engineer
 
+**Live Demo:** https://npc-memory-webservice.onrender.com  
+**GitHub Repository:** https://github.com/NJVinay/npc_memory
+
+---
+
+# 🏎️ F1 Car Builder with AI Race Engineer
+
 > Interactive F1 car building experience with AI-powered assistant Dax, featuring OAuth 2.0 authentication, GDPR compliance, and cloud-based LLM integration
 
 ---
@@ -489,3 +496,4 @@ This project is developed for academic research and portfolio purposes.
 ---
 
 **Built with ❤️ for the F1 racing community and AI enthusiasts**
+
