@@ -1,4 +1,6 @@
-# Local imports
+import os
+
+content = """# Local imports
 from config import config
 
 # Third-party imports
@@ -175,3 +177,8 @@ if __name__ == "__main__":
         reload=config.RELOAD,
         log_level=config.LOG_LEVEL.lower()
     )
+"""
+
+with open('main.py', 'w', encoding='utf-8', newline='\n') as f:
+    f.write(content)
+print("✅ Rewrote main.py with clean UTF-8 encoding")

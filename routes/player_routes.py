@@ -14,10 +14,6 @@ from services import PlayerService
 from dependencies import limiter, require_service_key, is_email_allowed
 
 router = APIRouter(tags=["Players"])
-templates = Jinja2Templates(directory="templates") # This will be passed from main or re-init
-
-# Since Templates are needed, I'll allow router to have its own if necessary, 
-# but usually it's better to pass it. For now, re-init is fine.
 from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="templates")
 

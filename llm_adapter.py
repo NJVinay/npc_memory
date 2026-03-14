@@ -101,8 +101,7 @@ def generate_with_huggingface(prompt: str, max_tokens: int = 150, temperature: f
 
 def generate_llm_response(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> Dict:
     """
-    Universal LLM response generator.
-    Switches between local GGUF and cloud APIs based on USE_EXTERNAL_LLM env var.
+    Universal LLM response generator for cloud providers.
     
     Returns:
         Dict with 'response' key containing generated text
@@ -124,22 +123,16 @@ def generate_llm_response(prompt: str, max_tokens: int = 150, temperature: float
         
         return {"response": text}
     
-    else:
-        # Use local GGUF model
-        print("🖥️ Using local GGUF model")
-        # To avoid circular import, we should ideally NOT import from llamacpp here
-        # or llamacpp should provide a low-level generate function
-        from llamacpp import generate_npc_response
-        return generate_npc_response(prompt, "neutral", 0, [], "Player")
+    return {"response": "External LLM is disabled in config."}
 
 
 if __name__ == "__main__":
     print("=" * 60)
     print("LLM ADAPTER CONFIGURATION")
     print("=" * 60)
-    print(f"Mode: {'EXTERNAL API' if USE_EXTERNAL_LLM else 'LOCAL MODEL'}")
-    if USE_EXTERNAL_LLM:
-        print(f"Provider: {LLM_PROVIDER}")
-        print(f"Model: {LLM_MODEL}")
-        print(f"API Key Set: {'✅ Yes' if LLM_API_KEY else '❌ No'}")
+    print(f"Mode: {'EXTERNAL API' if config.USE_EXTERNAL_LLM else 'LOCAL MODEL'}")
+    if config.USE_EXTERNAL_LLM:
+        print(f"Provider: {config.LLM_PROVIDER}")
+        print(f"Model: {config.LLM_MODEL}")
+        print(f"API Key Set: {'✅ Yes' if config.LLM_API_KEY else '❌ No'}")
     print("=" * 60)

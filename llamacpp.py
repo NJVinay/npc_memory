@@ -346,7 +346,7 @@ def generate_npc_response(
         # If still empty or too short, provide context-appropriate fallback
         if not reply_text or len(reply_text.strip()) < 10:
             # Generate context-appropriate fallback based on build status
-            if build and all([build.chassis, build.engine, build.tires, build.frontWing, build.rearWing]):
+            if build and all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
                 reply_text = f"Perfect build, {player_name}! Your car is race-ready. Focus on your racing line and you'll do great!"
             elif build:
                 missing_parts = []
