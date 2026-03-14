@@ -121,7 +121,13 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 # Application
 ENVIRONMENT=development
 ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+SERVICE_API_KEY=your-service-api-key-here
+REQUIRE_SERVICE_API_KEY=true
+ALLOWED_EMAIL_DOMAINS=example.com
+ALLOWED_EMAILS=
 ```
+
+Note: API endpoints intended for programmatic access require `x-service-key` when `REQUIRE_SERVICE_API_KEY=true`. Browser UI routes use JWT cookies.
 
 ### 5. Get API Keys
 
@@ -298,6 +304,11 @@ USE_EXTERNAL_LLM=true
 LLM_PROVIDER=groq
 LLM_MODEL=llama-3.1-8b-instant
 ENVIRONMENT=production
+ALLOWED_ORIGINS=https://your-app.onrender.com
+SERVICE_API_KEY=<random-service-key>
+REQUIRE_SERVICE_API_KEY=true
+ALLOWED_EMAIL_DOMAINS=yourdomain.com
+ALLOWED_EMAILS=
 ```
 
 ### 4. Update OAuth Redirect URIs

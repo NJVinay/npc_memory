@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 
@@ -27,8 +27,18 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# JWT Bearer token extraction
-security = HTTPBearer()
+# JWT Bearer token extraction (allow cookie fallback)
+security = HTTPBearer(auto_error=False)
+
+
+def _get_token_from_request(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials]
+) -> Optional[str]:
+    """Extract JWT from Authorization header or httpOnly cookie."""
+    if credentials and credentials.credentials:
+        return credentials.credentials
+    return request.cookies.get("access_token")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -75,9 +85,17 @@ def verify_token(token: str, token_type: str = "access") -> dict:
         )
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Dependency to get current authenticated user from JWT."""
-    token = credentials.credentials
+async def get_current_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> dict:
+    """Dependency to get current authenticated user from JWT or cookie."""
+    token = _get_token_from_request(request, credentials)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token"
+        )
     payload = verify_token(token, "access")
     return payload
 

@@ -1,10 +1,10 @@
 services:
   - type: web
     name: npc-memory-backend
-    runtime: python
+    runtime: docker
     plan: free
     region: oregon
-    buildCommand: pip install -r requirements.txt
+
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       # Database
@@ -16,8 +16,18 @@ services:
         value: production
       - key: SECRET_KEY
         generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
       - key: ALLOWED_ORIGINS
         value: https://your-frontend-domain.com
+      - key: SERVICE_API_KEY
+        generateValue: true
+      - key: REQUIRE_SERVICE_API_KEY
+        value: "true"
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: ""
+      - key: ALLOWED_EMAILS
+        value: ""
       
       # Server
       - key: HOST

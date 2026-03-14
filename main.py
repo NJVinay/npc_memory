@@ -1,4 +1,5 @@
 # Standard library imports
+import hmac
 import json
 import os
 import random
@@ -11,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Third-party imports
-from fastapi import FastAPI, Depends, HTTPException, Request, Form, Query
+from fastapi import FastAPI, Depends, HTTPException, Request, Form, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
@@ -26,6 +27,7 @@ from slowapi.errors import RateLimitExceeded
 from config import config
 from database import SessionLocal, engine
 from llamacpp import get_short_part_name
+from auth import get_current_user, create_access_token, create_refresh_token
 from models import Base, NPCMemory, Player, CarBuild, Consent
 from schemas import (
     NPCMemoryCreate, NPCMemoryResponse, NPCMemoryUpdate,
@@ -36,8 +38,12 @@ from schemas import (
 from services import PlayerService, ChatService, BuildService, ConsentService
 from sentiment import analyze_sentiment
 from oauth_routes import router as oauth_router
+from security_config import MAX_REQUEST_SIZE, MAX_DIALOGUE_LENGTH, SECURITY_HEADERS, RATE_LIMITS
 
 templates = Jinja2Templates(directory="templates") #Template directory setup
+
+# Check if running in production
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -47,8 +53,8 @@ app = FastAPI(
     title=config.APP_NAME,
     description="API to store, retrieve, update, and delete NPC interactions with AI-powered NPCs",
     version=config.APP_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
 )
 
 # Add rate limit handler
@@ -63,6 +69,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Basic request size limit and security headers
+@app.middleware("http")
+async def enforce_request_size(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_SIZE:
+        return JSONResponse(status_code=413, content={"detail": "Request too large"})
+    response = await call_next(request)
+    for header, value in SECURITY_HEADERS.items():
+        if value:
+            response.headers[header] = value
+    return response
+
 # Include OAuth routes
 app.include_router(oauth_router)
 
@@ -70,6 +88,26 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Service key dependency (for private API access)
+def require_service_key(request: Request) -> None:
+    if not config.REQUIRE_SERVICE_API_KEY:
+        return
+    if not config.SERVICE_API_KEY:
+        raise HTTPException(status_code=503, detail="Service API key not configured")
+    provided = request.headers.get("x-service-key") or request.headers.get("x-api-key")
+    if not provided or not hmac.compare_digest(provided, config.SERVICE_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid service key")
+
+
+def _is_email_allowed(email: str) -> bool:
+    email_lower = email.lower()
+    if config.ALLOWED_EMAILS and email_lower in config.ALLOWED_EMAILS:
+        return True
+    if config.ALLOWED_EMAIL_DOMAINS:
+        domain = email_lower.split("@")[-1]
+        return domain in config.ALLOWED_EMAIL_DOMAINS
+    return True
 
 # Dependency to get the database session with improved error handling
 def get_db():
@@ -88,7 +126,14 @@ def login_page_redirect(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/cover", response_class=HTMLResponse, tags=["UI"])
-def cover_page(request: Request, player_id: int = Query(...), db: Session = Depends(get_db)):
+def cover_page(
+    request: Request,
+    player_id: int = Query(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     return templates.TemplateResponse("cover.html", {
         "request": request,
         "player_id": player_id
@@ -102,7 +147,13 @@ def cover_page(request: Request, player_id: int = Query(...), db: Session = Depe
     tags=["NPC Interactions"],
     status_code=201
 )
-def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)) -> NPCMemoryResponse:
+@limiter.limit(RATE_LIMITS["general"])
+def store_interaction(
+    data: NPCMemoryCreate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+    _: None = Depends(require_service_key)
+) -> NPCMemoryResponse:
     # Check for duplicate entry
     existing_entry = db.query(NPCMemory).filter(
         NPCMemory.player_id == data.player_id,
@@ -112,6 +163,9 @@ def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)) -> N
 
     if existing_entry:
         raise HTTPException(status_code=400, detail="This interaction already exists.")
+
+    if str(user.get("sub")) != str(data.player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
 
     # Get player and context
     player = PlayerService.get_player_by_id(db, data.player_id)
@@ -140,7 +194,16 @@ def store_interaction(data: NPCMemoryCreate, db: Session = Depends(get_db)) -> N
     response_model=List[NPCMemoryResponse],
     tags=["NPC Interactions"]
 )
-def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db)) -> List[NPCMemoryResponse]:
+@limiter.limit(RATE_LIMITS["general"])
+def get_interactions(
+    player_id: int,
+    npc_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+    _: None = Depends(require_service_key)
+) -> List[NPCMemoryResponse]:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     interactions = db.query(NPCMemory).filter(
         NPCMemory.player_id == player_id,
         NPCMemory.npc_id == npc_id
@@ -158,16 +221,28 @@ def get_interactions(player_id: int, npc_id: int, db: Session = Depends(get_db))
     description="Update player dialogue only. Sentiment and NPC reply are updated automatically.",
     tags=["NPC Interactions"]
 )
-def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get_db)) -> NPCMemoryResponse:
+@limiter.limit(RATE_LIMITS["general"])
+def update_interaction(
+    id: int,
+    data: NPCMemoryUpdate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+    _: None = Depends(require_service_key)
+) -> NPCMemoryResponse:
     npc_interaction = db.query(NPCMemory).filter(NPCMemory.id == id).first()
 
     if not npc_interaction:
         raise HTTPException(status_code=404, detail="Interaction not found.")
 
+    if len(data.dialogue) > MAX_DIALOGUE_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Dialogue must be <= {MAX_DIALOGUE_LENGTH} characters")
+
     # Get player info
     player = PlayerService.get_player_by_id(db, npc_interaction.player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+    if str(user.get("sub")) != str(player.id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     
     player_name = player.display_name or player.name or "Player"
     build = BuildService.get_latest_build(db, npc_interaction.player_id)
@@ -202,11 +277,20 @@ def update_interaction(id: int, data: NPCMemoryUpdate, db: Session = Depends(get
     tags=["NPC Interactions"],
     status_code=200
 )
-def delete_interaction(id: int, db: Session = Depends(get_db)) -> NPCMemoryResponse:
+@limiter.limit(RATE_LIMITS["general"])
+def delete_interaction(
+    id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+    _: None = Depends(require_service_key)
+) -> NPCMemoryResponse:
     npc_interaction = db.query(NPCMemory).filter(NPCMemory.id == id).first()
 
     if not npc_interaction:
         raise HTTPException(status_code=404, detail="Interaction not found.")
+
+    if str(user.get("sub")) != str(npc_interaction.player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
 
     # Capture the interaction before deletion for return 
     deleted_data = NPCMemoryResponse.model_validate(npc_interaction)
@@ -227,7 +311,12 @@ def health_check(db: Session = Depends(get_db)) -> dict:
 
 # Create a new player
 @app.post("/create_player", response_model=PlayerResponse, tags=["Players"])
-def create_player(player: PlayerCreate, db: Session = Depends(get_db)) -> PlayerResponse:
+@limiter.limit(RATE_LIMITS["general"])
+def create_player(
+    player: PlayerCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_service_key)
+) -> PlayerResponse:
     existing = db.query(Player).filter(Player.name == player.name).first()
     if existing: 
         raise HTTPException(status_code=400, detail="Player with this name already exists")
@@ -237,6 +326,7 @@ def create_player(player: PlayerCreate, db: Session = Depends(get_db)) -> Player
 
 # Get all players with pagination
 @app.get("/players", response_model=List[PlayerResponse], tags=["Players"])
+@limiter.limit(RATE_LIMITS["general"])
 def get_players(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
@@ -245,13 +335,25 @@ def get_players(
         le=config.MAX_PAGE_SIZE,
         description="Maximum records to return"
     ),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: None = Depends(require_service_key)
 ) -> List[PlayerResponse]:
     return PlayerService.get_all_players(db, skip=skip, limit=limit)
 
 @app.get("/chat", response_class=HTMLResponse, tags=["Chat Interface"])
-def get_chat(request: Request, player_id: Optional[int] = Query(default=None), db: Session = Depends(get_db)) -> HTMLResponse:
-    players = PlayerService.get_all_players(db, limit=100)
+def get_chat(
+    request: Request,
+    player_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+) -> HTMLResponse:
+    user_id = int(user.get("sub"))
+    if player_id is None:
+        player_id = user_id
+    elif player_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
+    player = PlayerService.get_player_by_id(db, player_id)
+    players = [player] if player else []
     chat_history = []
 
     latest_build = None
@@ -282,8 +384,11 @@ def post_chat(
     player_id: int = Form(...),
     npc_id: int = Form(config.DEFAULT_NPC_ID),
     dialogue: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ) -> HTMLResponse:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     # Validate player exists
     player = PlayerService.get_player_by_id(db, player_id)
     if not player:
@@ -292,8 +397,10 @@ def post_chat(
     # Validate dialogue is not empty
     if not dialogue or not dialogue.strip():
         raise HTTPException(status_code=400, detail="Dialogue cannot be empty")
+    if len(dialogue) > MAX_DIALOGUE_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Dialogue must be <= {MAX_DIALOGUE_LENGTH} characters")
     
-    players = PlayerService.get_all_players(db, limit=100)
+    players = [player]
 
     # Get recent context
     context = ChatService.get_conversation_history(db, player_id, limit=config.CONTEXT_WINDOW)
@@ -332,11 +439,16 @@ async def chat_api(
     player_id: int = Form(...),
     npc_id: int = Form(config.DEFAULT_NPC_ID),
     dialogue: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ) -> JSONResponse:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     # Validate dialogue
     if not dialogue or not dialogue.strip():
         raise HTTPException(status_code=400, detail="Dialogue cannot be empty")
+    if len(dialogue) > MAX_DIALOGUE_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Dialogue must be <= {MAX_DIALOGUE_LENGTH} characters")
     
     # Get conversation history from config
     context = ChatService.get_conversation_history(
@@ -346,15 +458,10 @@ async def chat_api(
 
     start = time.time()
     
-    # Get or create player
+    # Get player (no auto-create to prevent abuse)
     player_obj = PlayerService.get_player_by_id(db, player_id)
     if not player_obj:
-        print(f"⚠️ Player {player_id} not found, creating default player")
-        player_data = PlayerCreate(
-            name=f"Player{player_id}",
-            display_name=f"Player{player_id}"
-        )
-        player_obj = PlayerService.create_player(db, player_data)
+        raise HTTPException(status_code=404, detail="Player not found")
     
     player_name = player_obj.display_name or player_obj.name or "Player"
     build = BuildService.get_latest_build(db, player_id)
@@ -396,6 +503,8 @@ def create_player_from_form(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ) -> HTMLResponse:
+    if not _is_email_allowed(email):
+        raise HTTPException(status_code=403, detail="Email not allowed")
     # Check if email already exists
     existing_player = db.query(Player).filter(Player.email == email).first()
     if existing_player:
@@ -424,8 +533,13 @@ def create_player_from_form(
     })
 
 @app.get("/chat_static", response_class=HTMLResponse, tags=["Chat Interface"])
-def get_static_chat(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    players = PlayerService.get_all_players(db, limit=100)
+def get_static_chat(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+) -> HTMLResponse:
+    player = PlayerService.get_player_by_id(db, int(user.get("sub")))
+    players = [player] if player else []
     return templates.TemplateResponse("chat_static.html", {
         "request": request,
         "players": players
@@ -435,12 +549,16 @@ def get_static_chat(request: Request, db: Session = Depends(get_db)) -> HTMLResp
 def get_build(
     request: Request,
     db: Session = Depends(get_db),
-    player_id: Optional[int] = Query(default=None)
+    player_id: Optional[int] = Query(default=None),
+    user: dict = Depends(get_current_user)
 ) -> HTMLResponse:
-    players = PlayerService.get_all_players(db, limit=100)
-    players_json = jsonable_encoder(players)
-    if not player_id and players:
-        player_id = players[0].id  # default to first player
+    user_id = int(user.get("sub"))
+    if player_id is None:
+        player_id = user_id
+    elif player_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
+    player = PlayerService.get_player_by_id(db, player_id)
+    players_json = jsonable_encoder([player] if player else [])
     return templates.TemplateResponse("build.html", {
         "request": request,
         "players": players_json,
@@ -448,6 +566,7 @@ def get_build(
     })
 
 @app.post("/save_car_build", tags=["Car Builds"])
+@limiter.limit(RATE_LIMITS["general"])
 async def save_car_build(
     player_id: int = Form(...),
     chassis: str = Form(""),  # Allow empty values for partial builds
@@ -455,8 +574,11 @@ async def save_car_build(
     tires: str = Form(""),
     frontWing: str = Form("", alias="frontWing"),
     rearWing: str = Form("", alias="rearWing"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ) -> dict:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     # Validate player exists
     player = PlayerService.get_player_by_id(db, player_id)
     if not player:
@@ -481,17 +603,27 @@ async def save_car_build(
         raise HTTPException(status_code=500, detail="Database error while saving build.")
 
 @app.get("/get_builds/{player_id}", tags=["Car Builds"])
+@limiter.limit(RATE_LIMITS["general"])
 def get_player_builds(
     player_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(config.DEFAULT_PAGE_SIZE, ge=1, le=config.MAX_PAGE_SIZE),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ) -> List[CarBuildResponse]:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     builds = BuildService.get_player_builds(db, player_id, skip=skip, limit=limit)
     return builds if builds else []
 
 @app.get("/start_chat", tags=["Navigation"])
-def start_chat(player_id: int = Query(...), db: Session = Depends(get_db)) -> RedirectResponse:
+def start_chat(
+    player_id: int = Query(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+) -> RedirectResponse:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
     npc = random.choice(["dax", "static"])
     if npc == "dax":
         return RedirectResponse(f"/chat?player_id={player_id}")
@@ -506,17 +638,24 @@ def terms_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("terms.html", {"request": request})
 
 @app.get("/evaluation", response_class=HTMLResponse, tags=["Evaluation"])
-def evaluation_page(request: Request) -> HTMLResponse:
+def evaluation_page(request: Request, user: dict = Depends(get_current_user)) -> HTMLResponse:
     return templates.TemplateResponse("evaluation.html", {"request": request})
 
 @app.post("/verify_player", tags=["Authentication"])
 @limiter.limit("5/minute")  # Prevent brute force attacks
-def verify_player(request: Request, credentials: dict, db: Session = Depends(get_db)) -> dict:
+def verify_player(
+    request: Request,
+    response: Response,
+    credentials: dict,
+    db: Session = Depends(get_db)
+) -> dict:
     email = credentials.get("email")
     password = credentials.get("password")
     
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email and password required")
+    if not _is_email_allowed(email):
+        raise HTTPException(status_code=403, detail="Email not allowed")
 
     # Use service with bcrypt verification
     player = PlayerService.verify_player_email_password(db, email, password)
@@ -524,10 +663,37 @@ def verify_player(request: Request, credentials: dict, db: Session = Depends(get
     if not player:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    # Issue JWT cookies for authenticated session
+    token_data = {"sub": str(player.id), "email": player.email, "name": player.display_name or player.name}
+    access_token_jwt = create_access_token(token_data)
+    refresh_token_jwt = create_refresh_token(token_data)
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token_jwt,
+        httponly=True,
+        secure=IS_PRODUCTION,
+        samesite="lax",
+        max_age=900
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token_jwt,
+        httponly=True,
+        secure=IS_PRODUCTION,
+        samesite="lax",
+        max_age=604800
+    )
+
     return {"player_id": player.id}
 
 @app.post("/store_consent", response_model=ConsentResponse, tags=["Evaluation"])
-def store_consent(consent_data: ConsentCreate, db: Session = Depends(get_db)) -> ConsentResponse:
+@limiter.limit(RATE_LIMITS["general"])
+def store_consent(
+    consent_data: ConsentCreate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+) -> ConsentResponse:
     """Store user consent data to database.
     
     Args:
@@ -538,6 +704,9 @@ def store_consent(consent_data: ConsentCreate, db: Session = Depends(get_db)) ->
         Created consent record
     """
     try:
+        if str(user.get("sub")) != str(consent_data.player_id):
+            raise HTTPException(status_code=403, detail="Not authorized for this player")
+
         # Verify player exists
         player = PlayerService.get_player_by_id(db, consent_data.player_id)
         if not player:

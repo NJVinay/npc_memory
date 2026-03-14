@@ -50,7 +50,22 @@ class Config:
     
     # Security Settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
-    ALLOWED_ORIGINS: list = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    ALLOWED_ORIGINS: list = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000"
+    ).split(",")
+    SERVICE_API_KEY: str = os.getenv("SERVICE_API_KEY", "")
+    REQUIRE_SERVICE_API_KEY: bool = os.getenv("REQUIRE_SERVICE_API_KEY", "true").lower() == "true"
+    ALLOWED_EMAIL_DOMAINS: list = [
+        domain.strip().lower()
+        for domain in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",")
+        if domain.strip()
+    ]
+    ALLOWED_EMAILS: list = [
+        email.strip().lower()
+        for email in os.getenv("ALLOWED_EMAILS", "").split(",")
+        if email.strip()
+    ]
     
     # Chat Settings
     MAX_CONVERSATION_HISTORY: int = int(os.getenv("MAX_CONVERSATION_HISTORY", "20"))  # Fetch more from DB
@@ -85,6 +100,9 @@ class Config:
             if not cls.LLM_API_KEY:
                 raise ValueError(f"LLM_API_KEY must be set when USE_EXTERNAL_LLM=true. Get free key at: https://console.groq.com/keys")
         
+        if cls.REQUIRE_SERVICE_API_KEY and not cls.SERVICE_API_KEY:
+            raise ValueError("SERVICE_API_KEY must be set when REQUIRE_SERVICE_API_KEY=true")
+
         return True
     
     @classmethod

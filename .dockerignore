@@ -1,0 +1,27 @@
+# Version control
+.git
+.gitignore
+
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env
+
+# IDE
+.vscode
+.idea
+
+# Local models (too large for Docker image)
+models/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Documentation (not needed at runtime)
+README.md
+LICENSE

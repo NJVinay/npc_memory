@@ -12,6 +12,7 @@ from auth import (
     create_access_token, create_refresh_token, verify_token,
     OAUTH_CONFIG, hash_password, verify_password
 )
+from config import config
 from database import SessionLocal
 from models import Player
 from schemas import PlayerCreate
@@ -20,6 +21,16 @@ from schemas import PlayerCreate
 IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+def _is_email_allowed(email: str) -> bool:
+    """Restrict logins to an allowlist or domains when configured."""
+    email_lower = email.lower()
+    if config.ALLOWED_EMAILS and email_lower in config.ALLOWED_EMAILS:
+        return True
+    if config.ALLOWED_EMAIL_DOMAINS:
+        domain = email_lower.split("@")[-1]
+        return domain in config.ALLOWED_EMAIL_DOMAINS
+    return True
 
 
 def get_db():
@@ -112,6 +123,8 @@ async def oauth_callback(provider: str, code: str, request: Request, db: Session
     
     if not email:
         raise HTTPException(status_code=400, detail="Email not provided by OAuth provider")
+    if not _is_email_allowed(email):
+        raise HTTPException(status_code=403, detail="Email not allowed")
     
     # Find or create user
     player = db.query(Player).filter(Player.email == email).first()
