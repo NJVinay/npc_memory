@@ -87,7 +87,13 @@ app.include_router(oauth_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Create database tables
-Base.metadata.create_all(bind=engine)
+try:
+    print("🚀 Initializing database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables initialized/verified")
+except Exception as e:
+    print(f"❌ CRITICAL ERROR during database initialization: {e}")
+    # Don't raise here yet to allow the app to potentially start and log more diagnostics
 
 # Service key dependency (for private API access)
 def require_service_key(request: Request) -> None:

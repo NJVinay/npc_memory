@@ -88,21 +88,34 @@ class Config:
     @classmethod
     def validate(cls) -> bool:
         """Validate required configuration values."""
+        print(f"🔍 Validating configuration for environment: {os.getenv('ENVIRONMENT', 'development')}")
+        
         if not cls.DATABASE_URL:
+            print("❌ Error: DATABASE_URL is missing")
             raise ValueError("DATABASE_URL must be set in environment variables")
+        print("✅ DATABASE_URL is set")
         
         # Only check for model file if using local LLM
         if not cls.USE_EXTERNAL_LLM:
             if not os.path.exists(cls.MODEL_PATH):
+                print(f"❌ Error: Local model not found at {cls.MODEL_PATH}")
                 raise FileNotFoundError(f"Model file not found: {cls.MODEL_PATH}")
+            print(f"✅ Local model found at {cls.MODEL_PATH}")
         else:
             # Validate external LLM configuration
             if not cls.LLM_API_KEY:
+                print("❌ Error: LLM_API_KEY is missing while USE_EXTERNAL_LLM=true")
                 raise ValueError(f"LLM_API_KEY must be set when USE_EXTERNAL_LLM=true. Get free key at: https://console.groq.com/keys")
+            print("✅ LLM_API_KEY is set")
         
         if cls.REQUIRE_SERVICE_API_KEY and not cls.SERVICE_API_KEY:
+            print("❌ Error: SERVICE_API_KEY is missing while REQUIRE_SERVICE_API_KEY=true")
             raise ValueError("SERVICE_API_KEY must be set when REQUIRE_SERVICE_API_KEY=true")
+        
+        if cls.REQUIRE_SERVICE_API_KEY:
+            print("✅ SERVICE_API_KEY is set")
 
+        print("✨ Configuration validation successful")
         return True
     
     @classmethod
