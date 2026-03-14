@@ -8,27 +8,22 @@ load_dotenv()
 
 from textblob import TextBlob
 
-# Check if we should use external LLM
-USE_EXTERNAL_LLM = os.getenv("USE_EXTERNAL_LLM", "false").lower() == "true"
-
-# Model configuration constants
-MODEL_CONFIG = {
-    "model_path": os.getenv("MODEL_PATH", "./models/mistral-7b-instruct-v0.1.Q2_K.gguf"),
-    "n_threads": 2,
-    "n_ctx": 4096,
-    "n_batch": 128,
-    "verbose": False,
-    "use_mlock": False,
-    "use_mmap": True
-}
+from config import config
+from textblob import TextBlob
 
 # Initialize local LLM only if not using external API
 llm = None
-if not USE_EXTERNAL_LLM:
+if not config.USE_EXTERNAL_LLM:
     try:
         from llama_cpp import Llama
-        llm = Llama(**MODEL_CONFIG)
-        print(f"✅ Loaded local GGUF model: {MODEL_CONFIG['model_path']}")
+        llm = Llama(
+            model_path=config.MODEL_PATH,
+            n_threads=config.MODEL_N_THREADS,
+            n_ctx=config.MODEL_N_CTX,
+            n_batch=config.MODEL_N_BATCH,
+            verbose=False
+        )
+        print(f"✅ Loaded local GGUF model: {config.MODEL_PATH}")
     except Exception as e:
         print(f"⚠️ Local model not loaded: {e}")
 
@@ -299,9 +294,9 @@ def generate_npc_response(
         start_time = time.time()
         
         # Check if we should use external API
-        if USE_EXTERNAL_LLM:
+        if config.USE_EXTERNAL_LLM:
             from llm_adapter import generate_llm_response
-            llm_result = generate_llm_response(full_prompt, max_tokens=150, temperature=0.4)
+            llm_result = generate_llm_response(full_prompt, max_tokens=config.MODEL_MAX_TOKENS, temperature=config.MODEL_TEMPERATURE)
             reply_text = llm_result.get("response", "I'm having trouble generating a response.")
         elif llm is None:
             reply_text = "I'm Dax, your F1 mechanic. The local model isn't available right now."
@@ -309,8 +304,8 @@ def generate_npc_response(
             # Use local GGUF model
             output = llm(
                 full_prompt,
-                max_tokens=150,
-                temperature=0.4,
+                max_tokens=config.MODEL_MAX_TOKENS,
+                temperature=config.MODEL_TEMPERATURE,
                 stop=["Player:", "Human:", "Dax:", "\n\n", "Corvette", "Porsche", "Audi", "Ferrari"],
                 echo=False,
                 repeat_penalty=1.3
@@ -384,7 +379,7 @@ def generate_npc_response(
         if has_invalid_cars or has_invalid_parts:
             print(f"⚠️ MAJOR HALLUCINATION DETECTED: Non-F1 content mentioned!")
             # Force correct F1 response based on build status
-            if build and all([build.chassis, build.engine, build.tires, build.frontWing, build.rearWing]):
+            if build and all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
                 reply_text = f"Perfect F1 setup, {player_name}! Your car is race-ready with all components selected."
             elif not build or not any([build.chassis if build else None, build.engine if build else None, build.tires if build else None]):
                 reply_text = f"Let's build your F1 car, {player_name}. Start by choosing a chassis: Standard Monocoque or Ground Effect Optimized."
@@ -394,8 +389,8 @@ def generate_npc_response(
                 if not build.chassis or build.chassis == "": missing.append("chassis")
                 elif not build.engine or build.engine == "": missing.append("engine")
                 elif not build.tires or build.tires == "": missing.append("tires") 
-                elif not build.frontWing or build.frontWing == "": missing.append("front wing")
-                elif not build.rearWing or build.rearWing == "": missing.append("rear wing")
+                elif not build.front_wing or build.front_wing == "": missing.append("front wing")
+                elif not build.rear_wing or build.rear_wing == "": missing.append("rear wing")
                 
                 if missing:
                     next_part = missing[0]

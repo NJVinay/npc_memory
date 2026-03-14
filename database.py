@@ -8,24 +8,19 @@ from sqlalchemy.orm import sessionmaker, Session
 
 # Load environment variables
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+from config import config
 
-if not DATABASE_URL:
-    print("❌ ERROR: DATABASE_URL is not set in environment variables!")
-    raise ValueError("DATABASE_URL environment variable is not set")
-
-print(f"📡 Attempting to connect to database (type: {DATABASE_URL.split(':')[0]})")
-
+# Create database engine with connection pooling from config
 try:
-    # Create database engine with connection pooling
+    print(f"📡 Attempting to connect to database (type: {config.DATABASE_URL.split(':')[0]})")
     engine = create_engine(
-        DATABASE_URL,
+        config.DATABASE_URL,
         poolclass=pool.QueuePool,
-        pool_size=5,
-        max_overflow=10,
+        pool_size=config.DB_POOL_SIZE,
+        max_overflow=config.DB_MAX_OVERFLOW,
         pool_pre_ping=True,  # Verify connections before using
-        pool_recycle=3600,   # Recycle connections after 1 hour
-        echo=False  # Set to True for SQL debugging
+        pool_recycle=config.DB_POOL_RECYCLE,
+        echo=False
     )
 except Exception as e:
     print(f"❌ FAILED to create database engine: {e}")

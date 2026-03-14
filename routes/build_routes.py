@@ -43,8 +43,8 @@ async def save_car_build(
     chassis: str = Form(""),
     engine: str = Form(""),
     tires: str = Form(""),
-    frontWing: str = Form("", alias="frontWing"),
-    rearWing: str = Form("", alias="rearWing"),
+    front_wing: str = Form("", alias="frontWing"),
+    rear_wing: str = Form("", alias="rearWing"),
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ) -> dict:
@@ -60,12 +60,12 @@ async def save_car_build(
         chassis = chassis if chassis else None
         engine = engine if engine else None
         tires = tires if tires else None
-        frontWing = frontWing if frontWing else None
-        rearWing = rearWing if rearWing else None
+        front_wing = front_wing if front_wing else None
+        rear_wing = rear_wing if rear_wing else None
         
         build = BuildService.create_build(
             db, player_id, chassis, engine, tires,
-            frontWing, rearWing
+            front_wing, rear_wing
         )
         return {"status": "success", "message": "Build saved successfully!", "build_id": build.id}
     except Exception as e:

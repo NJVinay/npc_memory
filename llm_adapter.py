@@ -10,11 +10,7 @@ from typing import Dict, Union
 from dotenv import load_dotenv
 load_dotenv()
 
-# Configuration
-USE_EXTERNAL_LLM = os.getenv("USE_EXTERNAL_LLM", "false").lower() == "true"
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
+from config import config
 
 
 def generate_with_groq(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> str:
@@ -22,13 +18,13 @@ def generate_with_groq(prompt: str, max_tokens: int = 150, temperature: float = 
     try:
         from groq import Groq
         
-        if not LLM_API_KEY:
+        if not config.LLM_API_KEY:
             return "I'm Dax, your F1 mechanic. Get a free Groq API key at console.groq.com"
         
-        client = Groq(api_key=LLM_API_KEY)
+        client = Groq(api_key=config.LLM_API_KEY)
         
         response = client.chat.completions.create(
-            model=LLM_MODEL,
+            model=config.LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
@@ -48,13 +44,13 @@ def generate_with_openai(prompt: str, max_tokens: int = 150, temperature: float 
     try:
         from openai import OpenAI
         
-        if not LLM_API_KEY:
+        if not config.LLM_API_KEY:
             return "I'm Dax, your F1 mechanic. Get OpenAI API key at platform.openai.com"
         
-        client = OpenAI(api_key=LLM_API_KEY)
+        client = OpenAI(api_key=config.LLM_API_KEY)
         
         response = client.chat.completions.create(
-            model=LLM_MODEL or "gpt-3.5-turbo",
+            model=config.LLM_MODEL or "gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
@@ -74,11 +70,11 @@ def generate_with_huggingface(prompt: str, max_tokens: int = 150, temperature: f
     try:
         import requests
         
-        if not LLM_API_KEY:
+        if not config.LLM_API_KEY:
             return "I'm Dax, your F1 mechanic. Get HF token at huggingface.co/settings/tokens"
         
-        api_url = f"https://api-inference.huggingface.co/models/{LLM_MODEL or 'mistralai/Mistral-7B-Instruct-v0.1'}"
-        headers = {"Authorization": f"Bearer {LLM_API_KEY}"}
+        api_url = f"https://api-inference.huggingface.co/models/{config.LLM_MODEL or 'mistralai/Mistral-7B-Instruct-v0.1'}"
+        headers = {"Authorization": f"Bearer {config.LLM_API_KEY}"}
         
         payload = {
             "inputs": prompt,
@@ -111,18 +107,19 @@ def generate_llm_response(prompt: str, max_tokens: int = 150, temperature: float
     Returns:
         Dict with 'response' key containing generated text
     """
-    if USE_EXTERNAL_LLM:
-        print(f"🌐 Using {LLM_PROVIDER.upper()} API")
+    if config.USE_EXTERNAL_LLM:
+        print(f"🌐 Using {config.LLM_PROVIDER.upper()} API")
         
         # Route to provider
-        if LLM_PROVIDER == "groq":
+        provider = config.LLM_PROVIDER.lower()
+        if provider == "groq":
             text = generate_with_groq(prompt, max_tokens, temperature)
-        elif LLM_PROVIDER == "openai":
+        elif provider == "openai":
             text = generate_with_openai(prompt, max_tokens, temperature)
-        elif LLM_PROVIDER == "huggingface" or LLM_PROVIDER == "hf":
+        elif provider in ["huggingface", "hf"]:
             text = generate_with_huggingface(prompt, max_tokens, temperature)
         else:
-            print(f"⚠️ Unknown provider: {LLM_PROVIDER}, using Groq")
+            print(f"⚠️ Unknown provider: {config.LLM_PROVIDER}, using Groq")
             text = generate_with_groq(prompt, max_tokens, temperature)
         
         return {"response": text}
@@ -130,8 +127,10 @@ def generate_llm_response(prompt: str, max_tokens: int = 150, temperature: float
     else:
         # Use local GGUF model
         print("🖥️ Using local GGUF model")
-        from llamacpp import generate_local_llm
-        return generate_local_llm(prompt, max_tokens, temperature)
+        # To avoid circular import, we should ideally NOT import from llamacpp here
+        # or llamacpp should provide a low-level generate function
+        from llamacpp import generate_npc_response
+        return generate_npc_response(prompt, "neutral", 0, [], "Player")
 
 
 if __name__ == "__main__":

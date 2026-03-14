@@ -20,6 +20,8 @@ _tokenizer = None
 _model = None
 _model_load_failed = False
 
+from config import config
+
 def get_sentiment_model():
     """Lazy load sentiment analysis model to reduce startup time."""
     global _tokenizer, _model, _model_load_failed
@@ -33,9 +35,9 @@ def get_sentiment_model():
                 _model_load_failed = True
                 return None, None
             
-            _tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
-            _model = AutoModelForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
-            print("✅ Loaded RoBERTa sentiment model")
+            _tokenizer = AutoTokenizer.from_pretrained(config.SENTIMENT_MODEL)
+            _model = AutoModelForSequenceClassification.from_pretrained(config.SENTIMENT_MODEL)
+            print(f"✅ Loaded sentiment model: {config.SENTIMENT_MODEL}")
         except Exception as e:
             print(f"⚠️ Failed to load RoBERTa model: {e}")
             _model_load_failed = True

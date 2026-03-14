@@ -1,11 +1,5 @@
-# Standard library imports
-import os
-import random
-from typing import Optional
-
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
+# Local imports
+from config import config
 
 # Third-party imports
 from fastapi import FastAPI, Depends, HTTPException, Request, Query
