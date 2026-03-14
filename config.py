@@ -16,6 +16,7 @@ class Config:
     APP_NAME: str = "NPC Memory API"
     APP_VERSION: str = "2.0.0"
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    ENVIRONMENT: str = "development"
     
     # Server Settings
     HOST: str = os.getenv("HOST", "127.0.0.1")
@@ -153,6 +154,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     RELOAD = True
     LOG_LEVEL = "DEBUG"
+    ENVIRONMENT = "development"
 
 
 class ProductionConfig(Config):
@@ -160,6 +162,7 @@ class ProductionConfig(Config):
     DEBUG = False
     RELOAD = False
     LOG_LEVEL = "WARNING"
+    ENVIRONMENT = "production"
     
     # Override with production security
     SECRET_KEY = os.getenv("SECRET_KEY")  # Must be set in production
@@ -184,6 +187,7 @@ class TestConfig(Config):
     DEBUG = True
     DATABASE_URL = "sqlite:///./test.db"
     SENTIMENT_CACHE_SIZE = 100
+    ENVIRONMENT = "test"
 
 
 # Factory function to get the right config
