@@ -4,7 +4,7 @@ import re
 
 from pydantic import BaseModel, Field, field_validator, EmailStr
 
-from security_config import MAX_DIALOGUE_LENGTH
+from config import config
 
 
 # =============================================================================
@@ -15,7 +15,7 @@ class NPCMemoryCreate(BaseModel):
     """Schema for creating a new NPC interaction."""
     player_id: int = Field(..., gt=0, description="ID of the player")
     npc_id: int = Field(..., gt=0, description="ID of the NPC")
-    dialogue: str = Field(..., min_length=1, max_length=MAX_DIALOGUE_LENGTH, description="Player's dialogue")
+    dialogue: str = Field(..., min_length=1, max_length=config.MAX_DIALOGUE_LENGTH, description="Player's dialogue")
     
     @field_validator('dialogue')
     @classmethod
@@ -35,7 +35,7 @@ class NPCMemoryCreate(BaseModel):
 
 class NPCMemoryUpdate(BaseModel):
     """Schema for updating an NPC interaction."""
-    dialogue: str = Field(..., min_length=1, max_length=MAX_DIALOGUE_LENGTH, description="Updated player dialogue")
+    dialogue: str = Field(..., min_length=1, max_length=config.MAX_DIALOGUE_LENGTH, description="Updated player dialogue")
     
     @field_validator('dialogue')
     @classmethod
