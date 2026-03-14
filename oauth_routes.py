@@ -13,33 +13,15 @@ from auth import (
     OAUTH_CONFIG, hash_password, verify_password
 )
 from config import config
-from database import SessionLocal
+from database import SessionLocal, get_db
 from models import Player
 from schemas import PlayerCreate
+from dependencies import is_email_allowed
 
 # Check if running in production
-IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
+IS_PRODUCTION = config.ENVIRONMENT == "production"
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-
-def _is_email_allowed(email: str) -> bool:
-    """Restrict logins to an allowlist or domains when configured."""
-    email_lower = email.lower()
-    if config.ALLOWED_EMAILS and email_lower in config.ALLOWED_EMAILS:
-        return True
-    if config.ALLOWED_EMAIL_DOMAINS:
-        domain = email_lower.split("@")[-1]
-        return domain in config.ALLOWED_EMAIL_DOMAINS
-    return True
-
-
-def get_db():
-    """Database dependency."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.get("/login/{provider}")
@@ -123,7 +105,7 @@ async def oauth_callback(provider: str, code: str, request: Request, db: Session
     
     if not email:
         raise HTTPException(status_code=400, detail="Email not provided by OAuth provider")
-    if not _is_email_allowed(email):
+    if not is_email_allowed(email):
         raise HTTPException(status_code=403, detail="Email not allowed")
     
     # Find or create user

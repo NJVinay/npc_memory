@@ -2,7 +2,7 @@
 # This file centralizes all configuration values
 
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -84,6 +84,26 @@ class Config:
         "LOG_FORMAT",
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+    
+    # Rate Limiting (from security_config.py)
+    RATE_LIMITS: Dict[str, str] = {
+        "chat_api": "30/minute",  # Groq free tier limit
+        "login": "5/minute",  # Prevent brute force
+        "register": "3/minute",  # Prevent spam
+        "general": "100/minute"  # General API rate limit
+    }
+    
+    # Security Headers (from security_config.py)
+    SECURITY_HEADERS: Dict[str, str] = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains" if os.getenv("ENVIRONMENT") == "production" else "",
+    }
+    
+    # Validation Rules
+    MAX_REQUEST_SIZE: int = 1024 * 1024  # 1MB
+    MAX_DIALOGUE_LENGTH: int = 500  # characters
     
     @classmethod
     def validate(cls) -> bool:
