@@ -344,8 +344,10 @@
           ? "bg-gray-700"
           : "bg-green-900"
         } max-w-full`;
-      div.innerHTML = `<strong>${role === "player" ? "You" : "Dax"
-        }:</strong> ${text}`;
+      // Message text goes in as a text node, never as HTML (it may come from the LLM)
+      const label = document.createElement("strong");
+      label.textContent = role === "player" ? "You:" : "Dax:";
+      div.append(label, " ", text);
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -432,7 +434,7 @@
     });
 
     const rawChatCount = `{{ chat_history|length }}`;
-    const rawPlayerName = `{{ player_name }}`;
+    const rawPlayerName = {{ player_name|tojson }};
     const chatCountNumber = parseInt(rawChatCount, 10) || 0
 
     const hasHistory = chatCountNumber > 0;
@@ -470,7 +472,7 @@
 
       addMessage("npc", greetingText);
     };
-    gsap.from("#talk-dax-btn", {
+    const talkBtnPulse = gsap.from("#talk-dax-btn", {
       scale: 0.9,
       duration: 0.5,
       ease: "back.out(1.7)",
@@ -480,7 +482,7 @@
       }
     });
 
-    document.getElementById("talk-dax-btn").addEventListener("mouseenter", () => gsap.restart("#talk-dax-btn"));
+    document.getElementById("talk-dax-btn").addEventListener("mouseenter", () => talkBtnPulse.restart());
 
     document.getElementById("minimize-btn").onclick = () => {
       const daxPanel = document.getElementById("chat-panel-wrapper");

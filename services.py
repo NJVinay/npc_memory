@@ -34,9 +34,16 @@ class PlayerService:
     
     @staticmethod
     def create_player(db: Session, player_data: PlayerCreate) -> Player:
-        """Create a new player."""
+        """Create a new player, storing a bcrypt hash of the password if one is given."""
+        # Player has no password/role columns; the password is stored as pin_hash
+        fields = player_data.model_dump(exclude={"password", "role"})
+        if player_data.password:
+            fields["pin_hash"] = bcrypt.hashpw(
+                player_data.password.encode('utf-8'), bcrypt.gensalt()
+            ).decode('utf-8')
+
         try:
-            new_player = Player(**player_data.model_dump())
+            new_player = Player(**fields)
             db.add(new_player)
             db.commit()
             db.refresh(new_player)
@@ -172,21 +179,26 @@ class ChatService:
     def get_conversation_history(
         db: Session,
         player_id: int,
-        limit: int = config.MAX_CONVERSATION_HISTORY
+        limit: int = config.MAX_CONVERSATION_HISTORY,
+        before_id: Optional[int] = None
     ) -> List[NPCMemory]:
         """Get conversation history for a player (newest first, then reversed).
-        
+
         Args:
             db: Database session
             player_id: Player's ID
             limit: Maximum number of messages to retrieve
-            
+            before_id: Only include messages created before this interaction
+
         Returns:
             List of NPCMemory objects in chronological order (oldest first)
         """
+        query = db.query(NPCMemory).filter(NPCMemory.player_id == player_id)
+        if before_id is not None:
+            query = query.filter(NPCMemory.id < before_id)
+
         history = (
-            db.query(NPCMemory)
-            .filter(NPCMemory.player_id == player_id)
+            query
             .order_by(NPCMemory.timestamp.desc())
             .limit(limit)
             .all()

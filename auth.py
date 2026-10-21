@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import HTTPException, status, Depends, Request
+from fastapi import HTTPException, status, Depends, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 
@@ -45,7 +45,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, config.JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
@@ -54,14 +54,14 @@ def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, config.JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(token: str, token_type: str = "access") -> dict:
     """Verify JWT token and return payload."""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, config.JWT_SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != token_type:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -73,11 +73,70 @@ def verify_token(token: str, token_type: str = "access") -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired"
         )
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
+
+
+def _set_token_cookie(response: Response, key: str, value: str, max_age: int) -> None:
+    response.set_cookie(
+        key=key,
+        value=value,
+        httponly=True,
+        secure=config.ENVIRONMENT == "production",  # HTTPS-only cookies in production
+        samesite="lax",
+        max_age=max_age
+    )
+
+
+def set_auth_cookies(response: Response, token_data: dict) -> None:
+    """Issue a fresh access + refresh token pair as httpOnly cookies."""
+    _set_token_cookie(response, "access_token", create_access_token(token_data), ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    _set_token_cookie(response, "refresh_token", create_refresh_token(token_data), REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
+
+
+def _token_payload(token: Optional[str], token_type: str) -> Optional[dict]:
+    """Decode a token, returning None instead of raising if it is missing or invalid."""
+    if not token:
+        return None
+    try:
+        return verify_token(token, token_type)
+    except HTTPException:
+        return None
+
+
+async def renew_expired_session(request: Request, call_next):
+    """HTTP middleware: when the access token has expired but the refresh token is
+    still valid, issue a new access token for this request and the browser.
+
+    The pages never call /auth/token/refresh themselves, so without this a session
+    would end when the access token expires, even in the middle of a chat.
+    """
+    if request.url.path.startswith("/static") or _token_payload(request.cookies.get("access_token"), "access"):
+        return await call_next(request)
+
+    refresh = _token_payload(request.cookies.get("refresh_token"), "refresh")
+    if not refresh:
+        return await call_next(request)
+
+    new_access = create_access_token(
+        {"sub": refresh["sub"], "email": refresh.get("email"), "name": refresh.get("name")}
+    )
+
+    # Swap the new token into this request so get_current_user accepts it
+    cookies = {**request.cookies, "access_token": new_access}
+    headers = [(k, v) for k, v in request.scope["headers"] if k != b"cookie"]
+    headers.append((b"cookie", "; ".join(f"{k}={v}" for k, v in cookies.items()).encode("latin-1")))
+    request.scope["headers"] = headers
+
+    response = await call_next(request)
+
+    # A route that set or cleared the access cookie itself (login, OAuth callback, logout) wins
+    if not any(c.startswith("access_token=") for c in response.headers.getlist("set-cookie")):
+        _set_token_cookie(response, "access_token", new_access, ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    return response
 
 
 async def get_current_user(

@@ -285,7 +285,7 @@ def generate_npc_response(
         if all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
             mood_instruction += " The car build is complete. Praise the player or give final strategy tips."
             
-    is_first_message = context_prompt == "This is the beginning of the conversation."
+    is_first_message = not context_entries
             
     full_prompt = build_dax_prompt(player_name, sentiment, mood_instruction, build_context, context_prompt, player_dialogue, is_first_message)
 

@@ -51,6 +51,7 @@ class Config:
     
     # Security Settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY") or SECRET_KEY  # Signs auth tokens
     ALLOWED_ORIGINS: list = os.getenv(
         "ALLOWED_ORIGINS",
         "http://localhost:8000,http://127.0.0.1:8000"
@@ -175,6 +176,9 @@ class ProductionConfig(Config):
         
         if cls.SECRET_KEY == "your-secret-key-change-in-production":
             raise ValueError("SECRET_KEY must be changed in production")
+
+        if cls.JWT_SECRET_KEY == "your-secret-key-change-in-production":
+            raise ValueError("JWT_SECRET_KEY (or SECRET_KEY) must be set in production")
         
         if "*" in cls.ALLOWED_ORIGINS:
             raise ValueError("CORS origins must be restricted in production")
@@ -185,7 +189,8 @@ class ProductionConfig(Config):
 class TestConfig(Config):
     """Test-specific configuration."""
     DEBUG = True
-    DATABASE_URL = "sqlite:///./test.db"
+    # Separate variable on purpose: .env's DATABASE_URL is the production database
+    DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
     SENTIMENT_CACHE_SIZE = 100
     ENVIRONMENT = "test"
 

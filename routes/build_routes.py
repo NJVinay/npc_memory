@@ -1,9 +1,6 @@
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, Query
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from fastapi.templating import Jinja2Templates
 
 from config import config
 from database import get_db
@@ -13,27 +10,6 @@ from services import PlayerService, BuildService
 from dependencies import limiter
 
 router = APIRouter(tags=["Car Builds"])
-templates = Jinja2Templates(directory="templates")
-
-@router.get("/build", response_class=HTMLResponse)
-def get_build(
-    request: Request,
-    db: Session = Depends(get_db),
-    player_id: Optional[int] = Query(default=None),
-    user: dict = Depends(get_current_user)
-) -> HTMLResponse:
-    user_id = int(user.get("sub"))
-    if player_id is None:
-        player_id = user_id
-    elif player_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized for this player")
-    player = PlayerService.get_player_by_id(db, player_id)
-    players_json = jsonable_encoder([player] if player else [])
-    return templates.TemplateResponse("build.html", {
-        "request": request,
-        "players": players_json,
-        "selected_player_id": player_id
-    })
 
 @router.post("/save_car_build")
 @limiter.limit(config.RATE_LIMITS["general"])

@@ -1,5 +1,6 @@
+import time
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from sqlalchemy.orm import Session
 
 from config import config
@@ -12,6 +13,56 @@ from sentiment import analyze_sentiment
 from dependencies import limiter, require_service_key
 
 router = APIRouter(tags=["NPC Interactions"])
+
+@router.post(
+    "/chat_api",
+    description="Browser chat endpoint (chat.html). Dax replies using the player's recent conversation history and build."
+)
+@limiter.limit(config.RATE_LIMITS["chat_api"])
+def chat_api(
+    request: Request, # Fix for slowapi crash
+    player_id: int = Form(...),
+    npc_id: int = Form(config.DEFAULT_NPC_ID),
+    dialogue: str = Form(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+) -> dict:
+    if str(user.get("sub")) != str(player_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
+
+    dialogue = dialogue.strip()
+    if not dialogue:
+        raise HTTPException(status_code=400, detail="Dialogue cannot be empty")
+    if len(dialogue) > config.MAX_DIALOGUE_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Dialogue must be <= {config.MAX_DIALOGUE_LENGTH} characters")
+
+    player = PlayerService.get_player_by_id(db, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player_name = player.display_name or player.name or "Player"
+    build = BuildService.get_latest_build(db, player_id)
+    context = ChatService.get_conversation_history(
+        db, player_id, limit=config.MAX_CONVERSATION_HISTORY
+    )
+
+    start = time.time()
+    try:
+        memory = ChatService.create_interaction(
+            db, player_id, npc_id, dialogue,
+            context, player_name, build
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"DB commit error (chat_api): {e}")
+        raise HTTPException(status_code=500, detail="Database connection issue, consider a retry.")
+
+    return {
+        "player_dialogue": dialogue,
+        "npc_reply": memory.npc_reply,
+        "sentiment": memory.sentiment,
+        "generation_time": round(time.time() - start, 2)
+    }
 
 @router.post(
     "/store_interaction/",
@@ -47,8 +98,10 @@ def store_interaction(
     
     player_name = player.display_name or player.name or "Player"
     build = BuildService.get_latest_build(db, data.player_id)
-    context: List[NPCMemory] = []
-    
+    context = ChatService.get_conversation_history(
+        db, data.player_id, limit=config.MAX_CONVERSATION_HISTORY
+    )
+
     # Use service layer to create interaction
     try:
         npc_interaction = ChatService.create_interaction(
@@ -117,7 +170,12 @@ def update_interaction(
     
     player_name = player.display_name or player.name or "Player"
     build = BuildService.get_latest_build(db, npc_interaction.player_id)
-    
+    # Dax answers the edited message as it stood in the conversation: only earlier messages count
+    context = ChatService.get_conversation_history(
+        db, npc_interaction.player_id,
+        limit=config.MAX_CONVERSATION_HISTORY, before_id=npc_interaction.id
+    )
+
     # Update dialogue
     npc_interaction.dialogue = data.dialogue
 
@@ -129,7 +187,7 @@ def update_interaction(
     from llamacpp import generate_npc_response
     npc_reply_obj = generate_npc_response(
         data.dialogue, player_sentiment,
-        npc_interaction.player_id, [], player_name, build=build
+        npc_interaction.player_id, context, player_name, build=build
     )
     npc_reply_text = npc_reply_obj["response"] if isinstance(npc_reply_obj, dict) else str(npc_reply_obj)
     npc_interaction.npc_reply = npc_reply_text

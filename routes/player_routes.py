@@ -7,7 +7,7 @@ import bcrypt
 
 from config import config
 from database import get_db
-from auth import create_access_token, create_refresh_token
+from auth import set_auth_cookies
 from models import Player
 from schemas import PlayerCreate, PlayerResponse
 from services import PlayerService
@@ -45,7 +45,7 @@ def get_players(
 
 @router.get("/create_player_form", response_class=HTMLResponse)
 def player_form(request: Request):
-    return templates.TemplateResponse("create_player.html", {"request": request})
+    return templates.TemplateResponse(request, "create_player.html")
 
 @router.post("/create_player_form")
 @limiter.limit("3/minute")
@@ -76,8 +76,7 @@ def create_player_from_form(
     db.commit()
     db.refresh(new_player)
 
-    return templates.TemplateResponse("player_created.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "player_created.html", {
         "player_id": new_player.id,
         "email": email,
         "display_name": name
@@ -104,19 +103,5 @@ def verify_player(
     if not player:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token_data = {"sub": str(player.id), "email": player.email, "name": player.display_name or player.name}
-    access_token_jwt = create_access_token(token_data)
-    refresh_token_jwt = create_refresh_token(token_data)
-
-    is_prod = config.ENVIRONMENT == "production"
-    
-    response.set_cookie(
-        key="access_token", value=access_token_jwt,
-        httponly=True, secure=is_prod, samesite="lax", max_age=900
-    )
-    response.set_cookie(
-        key="refresh_token", value=refresh_token_jwt,
-        httponly=True, secure=is_prod, samesite="lax", max_age=604800
-    )
-
+    set_auth_cookies(response, {"sub": str(player.id), "email": player.email, "name": player.display_name or player.name})
     return {"player_id": player.id}

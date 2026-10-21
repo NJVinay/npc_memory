@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: npc-memory-backend
+    name: npc-memory-webservice  # Matches the live service (npc-memory-webservice.onrender.com)
     runtime: docker
     plan: free
     region: oregon
@@ -19,7 +19,7 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: ALLOWED_ORIGINS
-        value: https://your-frontend-domain.com
+        value: https://npc-memory-webservice.onrender.com  # Pages are served by this app itself
       - key: SERVICE_API_KEY
         generateValue: true
       - key: REQUIRE_SERVICE_API_KEY

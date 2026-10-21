@@ -3,8 +3,7 @@ from typing import Generator
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 # Load environment variables
 load_dotenv()

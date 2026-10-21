@@ -2,10 +2,6 @@
 
 **Live Demo:** https://npc-memory-webservice.onrender.com  
 
----
-
-# 🏎️ F1 Car Builder with AI Race Engineer
-
 > Interactive F1 car building experience with AI-powered assistant Dax, featuring OAuth 2.0 authentication, GDPR compliance, and cloud-based LLM integration
 
 ---
@@ -46,7 +42,7 @@ Build Complete → Submit Feedback → Portfolio Redirect
 | **Database**           | PostgreSQL (Neon.tech)                        |
 | **AI Model**           | Groq API - Llama 3.1 8B (150 tokens/response) |
 | **Authentication**     | OAuth 2.0 (Google, GitHub) + JWT              |
-| **Sentiment Analysis** | RoBERTa Transformer                           |
+| **Sentiment Analysis** | TextBlob (optional RoBERTa)                   |
 | **Frontend**           | HTML/CSS + Vanilla JavaScript                 |
 | **Deployment**         | Render.com (ready)                            |
 
@@ -161,25 +157,6 @@ Open your browser: `http://localhost:8000`
 
 ---
 
-cp .env.example .env
-
-# Edit .env file with your database credentials
-
-# Contact project owner for production credentials
-
-````
-
-### 6. Run Application
-```bash
-uvicorn main:app --reload
-````
-
-### 7. Access Interface
-
-Open your browser and navigate to: `http://localhost:8000`
-
----
-
 ## 🔌 API Endpoints
 
 | Endpoint                | Method | Description                            |
@@ -249,15 +226,15 @@ Open your browser and navigate to: `http://localhost:8000`
 ```python
 MODEL_MAX_TOKENS = 150        # Max response length
 MODEL_TEMPERATURE = 0.4       # Response creativity (0.0-1.0)
-CONTEXT_WINDOW = 10          # Recent messages for context
+MAX_CONVERSATION_HISTORY = 20 # Past messages Dax remembers
 ```
 
 ### Authentication (auth.py)
 
 ```python
-ACCESS_TOKEN_EXPIRE = 15      # Minutes
-REFRESH_TOKEN_EXPIRE = 7      # Days
-JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30  # Renewed automatically while the refresh token is valid
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+ALGORITHM = "HS256"
 ```
 
 ### Database (models.py)
@@ -326,6 +303,15 @@ After deployment (e.g., `https://your-app.onrender.com`):
 ---
 
 ## 🧪 Testing
+
+### Test Suite
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Tests run against a temporary SQLite database with the LLM stubbed out, so they never touch the database in `.env` or call Groq.
 
 ### API Health Check
 
@@ -423,7 +409,7 @@ python -c "from database import engine; print(engine.connect())"
 
 - OAuth 2.0 authentication (Google + GitHub)
 - Email/password authentication with bcrypt
-- JWT token management (15min access, 7 day refresh)
+- JWT sessions (30-min access token, renewed automatically from a 7-day refresh token)
 - Groq API integration (cloud-based LLM)
 - Auto-save car builds on part selection
 - Real-time chat with AI assistant
@@ -434,6 +420,7 @@ python -c "from database import engine; print(engine.connect())"
 - Database migrations removed
 - Production-ready deployment config
 - Secure HTTPS cookies for production
+- Automated test suite (pytest, no external services needed)
 
 ### Future Enhancements 🚧
 

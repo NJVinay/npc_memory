@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 import random
 from typing import Optional
@@ -15,7 +16,7 @@ from typing import Optional
 from database import engine, Base, get_db
 from dependencies import limiter
 from llamacpp import get_short_part_name
-from auth import get_current_user
+from auth import get_current_user, renew_expired_session
 from services import PlayerService, ChatService, BuildService
 import oauth_routes
 from routes import npc_routes, build_routes, player_routes, consent_routes
@@ -58,6 +59,9 @@ async def add_security_headers(request: Request, call_next):
             response.headers[header] = value
     return response
 
+# Keep sessions alive past the access token's lifetime using the refresh token
+app.middleware("http")(renew_expired_session)
+
 # Static and Routers
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(oauth_routes.router)
@@ -79,7 +83,7 @@ except Exception as e:
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 @app.get("/login", response_class=HTMLResponse, tags=["UI"])
 def login_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 @app.get("/cover", response_class=HTMLResponse, tags=["UI"])
 def cover_page(
@@ -89,8 +93,7 @@ def cover_page(
 ):
     if str(user.get("sub")) != str(player_id):
         raise HTTPException(status_code=403, detail="Not authorized for this player")
-    return templates.TemplateResponse("cover.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "cover.html", {
         "player_id": player_id
     })
 
@@ -119,9 +122,9 @@ def get_chat(
             f"{get_short_part_name(latest_build.tires)} tires."
         )
 
-    return templates.TemplateResponse("chat.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "chat.html", {
         "players": [player] if player else [],
+        "player_name": (player.display_name if player else None) or "Driver",
         "selected_player_id": player_id,
         "chat_history": chat_history,
         "intro_message": intro_message
@@ -134,8 +137,7 @@ def get_static_chat(
     user: dict = Depends(get_current_user)
 ) -> HTMLResponse:
     player = PlayerService.get_player_by_id(db, int(user.get("sub")))
-    return templates.TemplateResponse("chat_static.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "chat_static.html", {
         "players": [player] if player else []
     })
 
@@ -152,16 +154,16 @@ def start_chat(
 
 @app.get("/terms", response_class=HTMLResponse, tags=["UI"])
 def terms_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("terms.html", {"request": request})
+    return templates.TemplateResponse(request, "terms.html")
 
 @app.get("/evaluation", response_class=HTMLResponse, tags=["UI"])
 def evaluation_page(request: Request, user: dict = Depends(get_current_user)) -> HTMLResponse:
-    return templates.TemplateResponse("evaluation.html", {"request": request})
+    return templates.TemplateResponse(request, "evaluation.html")
 
 @app.get("/health", tags=["System"])
 def health_check(db: Session = Depends(get_db)) -> dict:
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")

@@ -2,24 +2,15 @@
 OAuth 2.0 & JWT Authentication Routes
 """
 
-import os
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from auth import (
-    create_access_token, create_refresh_token, verify_token,
-    OAUTH_CONFIG, hash_password, verify_password
-)
-from config import config
-from database import SessionLocal, get_db
+from auth import verify_token, set_auth_cookies, OAUTH_CONFIG
+from database import get_db
 from models import Player
-from schemas import PlayerCreate
 from dependencies import is_email_allowed
-
-# Check if running in production
-IS_PRODUCTION = config.ENVIRONMENT == "production"
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -124,30 +115,9 @@ async def oauth_callback(provider: str, code: str, request: Request, db: Session
         db.commit()
         db.refresh(player)
     
-    # Create JWT tokens
-    token_data = {"sub": str(player.id), "email": email, "name": name}
-    access_token_jwt = create_access_token(token_data)
-    refresh_token_jwt = create_refresh_token(token_data)
-    
-    # Set tokens in httpOnly cookies and redirect to cover page
+    # Set JWT tokens in httpOnly cookies and redirect to cover page
     response = RedirectResponse(url=f"/cover?player_id={player.id}")
-    response.set_cookie(
-        key="access_token",
-        value=access_token_jwt,
-        httponly=True,
-        secure=IS_PRODUCTION,  # True in production with HTTPS
-        samesite="lax",
-        max_age=900  # 15 minutes
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token_jwt,
-        httponly=True,
-        secure=IS_PRODUCTION,  # True in production with HTTPS
-        samesite="lax",
-        max_age=604800  # 7 days
-    )
-    
+    set_auth_cookies(response, {"sub": str(player.id), "email": email, "name": name})
     return response
 
 
@@ -163,30 +133,7 @@ async def refresh_access_token(request: Request, response: Response):
     payload = verify_token(refresh_token, "refresh")
     
     # Create new access token AND rotate refresh token
-    token_data = {"sub": payload["sub"], "email": payload["email"], "name": payload["name"]}
-    new_access_token = create_access_token(token_data)
-    new_refresh_token = create_refresh_token(token_data)  # Rotate refresh token
-    
-    # Set new access token
-    response.set_cookie(
-        key="access_token",
-        value=new_access_token,
-        httponly=True,
-        secure=IS_PRODUCTION,  # True in production with HTTPS
-        samesite="lax",
-        max_age=900
-    )
-    
-    # Set new refresh token (rotation)
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        secure=IS_PRODUCTION,
-        samesite="lax",
-        max_age=604800  # 7 days
-    )
-    
+    set_auth_cookies(response, {"sub": payload["sub"], "email": payload["email"], "name": payload["name"]})
     return {"message": "Token refreshed successfully"}
 
 

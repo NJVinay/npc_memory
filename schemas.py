@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 import re
 
-from pydantic import BaseModel, Field, field_validator, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, field_validator, EmailStr
 
 from config import config
 
@@ -24,14 +24,13 @@ class NPCMemoryCreate(BaseModel):
             raise ValueError("Dialogue cannot be empty or whitespace only")
         return v.strip()
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "player_id": 1,
-                "npc_id": 101,
-                "dialogue": "Hello Dax, I need help choosing an engine for my F1 car."
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "player_id": 1,
+            "npc_id": 101,
+            "dialogue": "Hello Dax, I need help choosing an engine for my F1 car."
         }
+    })
 
 class NPCMemoryUpdate(BaseModel):
     """Schema for updating an NPC interaction."""
@@ -44,12 +43,11 @@ class NPCMemoryUpdate(BaseModel):
             raise ValueError("Dialogue cannot be empty or whitespace only")
         return v.strip()
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "dialogue": "Actually, I'd like to ask about tire choices instead."
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "dialogue": "Actually, I'd like to ask about tire choices instead."
         }
+    })
 
 class NPCMemoryResponse(NPCMemoryCreate):
     """Schema for NPC interaction responses (includes all fields)."""
@@ -59,8 +57,7 @@ class NPCMemoryResponse(NPCMemoryCreate):
     npc_sentiment: Optional[str] = Field(None, description="NPC response sentiment")
     timestamp: datetime = Field(..., description="When the interaction occurred")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # =============================================================================
@@ -104,8 +101,7 @@ class PlayerResponse(BaseModel):
     role: Optional[str] = Field(None, description="Player role")
     display_name: Optional[str] = Field(None, description="Player's display name")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # =============================================================================
@@ -121,10 +117,9 @@ class CarBuildResponse(BaseModel):
     tires: Optional[str] = Field(None, description="Tire type")
     front_wing: Optional[str] = Field(None, description="Front wing configuration")
     rear_wing: Optional[str] = Field(None, description="Rear wing configuration")
-    created_at: datetime = Field(..., description="When the build was created")
+    timestamp: datetime = Field(..., description="When the build was created")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # =============================================================================
@@ -156,17 +151,16 @@ class ConsentCreate(BaseModel):
             raise ValueError("Required fields cannot be empty")
         return v.strip()
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "player_id": 1,
-                "study_uuid": "550e8400-e29b-41d4-a716-446655440000",
-                "name": "John Doe",
-                "consent_participate": True,
-                "consent_data": True,
-                "consent_age": True
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "player_id": 1,
+            "study_uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "name": "John Doe",
+            "consent_participate": True,
+            "consent_data": True,
+            "consent_age": True
         }
+    })
 
 
 class ConsentResponse(BaseModel):
@@ -189,5 +183,4 @@ class ConsentResponse(BaseModel):
     consent_results: bool = Field(..., description="Results consent")
     created_at: datetime = Field(..., description="When consent was recorded")
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
