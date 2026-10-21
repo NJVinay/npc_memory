@@ -13,7 +13,7 @@ An immersive F1 car configuration system where players interact with **Dax**, an
 ### Key Features
 
 - 🔐 **OAuth 2.0 Authentication** - Login with Google or GitHub, or use email/password
-- 🤖 **AI Race Engineer (Dax)** - Powered by Groq API (Llama 3.1 8B Instant)
+- 🤖 **AI Race Engineer (Dax)** - Powered by Groq API (Qwen3.8 27B)
 - 🏎️ **Real-Time Car Building** - Select 5 F1 components with live preview
 - 💾 **Auto-Save Progress** - Parts selection saved to database instantly
 - 🧠 **Memory System** - AI remembers your conversation and build status
@@ -40,7 +40,7 @@ Build Complete → Submit Feedback → Portfolio Redirect
 | ---------------------- | --------------------------------------------- |
 | **Backend API**        | FastAPI (Python)                              |
 | **Database**           | PostgreSQL (Neon.tech)                        |
-| **AI Model**           | Groq API - Llama 3.1 8B (150 tokens/response) |
+| **AI Model**           | Groq API - Qwen3.8 27B (150 tokens/response)  |
 | **Authentication**     | OAuth 2.0 (Google, GitHub) + JWT              |
 | **Sentiment Analysis** | TextBlob (optional RoBERTa)                   |
 | **Frontend**           | HTML/CSS + Vanilla JavaScript                 |
@@ -105,7 +105,7 @@ DATABASE_URL=postgresql://username:password@host:port/database
 USE_EXTERNAL_LLM=true
 LLM_PROVIDER=groq
 LLM_API_KEY=your_groq_api_key_here
-LLM_MODEL=llama-3.1-8b-instant
+LLM_MODEL=qwen/qwen3.8-27b
 
 # Authentication
 JWT_SECRET_KEY=your_secret_key_here
@@ -279,7 +279,7 @@ GITHUB_CLIENT_SECRET=<github-secret>
 JWT_SECRET_KEY=<random-secret-key>
 USE_EXTERNAL_LLM=true
 LLM_PROVIDER=groq
-LLM_MODEL=llama-3.1-8b-instant
+LLM_MODEL=qwen/qwen3.8-27b
 ENVIRONMENT=production
 ALLOWED_ORIGINS=https://your-app.onrender.com
 SERVICE_API_KEY=<random-service-key>
@@ -397,7 +397,7 @@ python -c "from database import engine; print(engine.connect())"
 **Groq Free Tier Limits:**
 
 - 30 requests/minute
-- Llama 3.1 8B Instant model
+- Qwen3.8 27B model
 - 150 tokens max per response
 - Production-ready reliability
 

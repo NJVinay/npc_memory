@@ -1,5 +1,7 @@
 """Dax chat: the /chat_api endpoint used by chat.html, and conversation memory."""
 
+import llm_adapter
+
 
 def chat(client, player, text):
     return client.post("/chat_api", data={"player_id": player["id"], "npc_id": 1, "dialogue": text})
@@ -18,6 +20,19 @@ def test_chat_api_returns_dax_reply(client, player, llm_prompts, stub_reply):
     assert body["player_dialogue"] == "Which engine should I pick?"
     assert body["sentiment"] in {"positive", "neutral", "negative"}
     assert len(llm_prompts) == 1
+
+
+def test_reply_is_cleaned_of_reasoning_markdown_and_cut_off_text(client, player, monkeypatch):
+    raw = "<think>They want an engine.</think>Go with the **2004 V10**. It loves long straights. However, the"
+    monkeypatch.setattr(llm_adapter, "generate_with_groq", lambda *args, **kwargs: raw)
+
+    r = chat(client, player, "Which engine?")
+    assert r.json()["npc_reply"] == "Go with the 2004 V10. It loves long straights."
+
+
+def test_prompt_asks_for_short_plain_text(client, player, llm_prompts):
+    chat(client, player, "Hi")
+    assert "no markdown" in llm_prompts[0]
 
 
 def test_chat_page_greets_player_by_name(client, player):

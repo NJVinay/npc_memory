@@ -322,11 +322,11 @@
         function submitBuildPart(partType, value) {
             const formData = new FormData();
             formData.append("player_id", playerId);
-            formData.append("chassis", selectedParts.chassis);
-            formData.append("engine", selectedParts.engine);
-            formData.append("tires", selectedParts.tires);
-            formData.append("frontWing", selectedParts.frontWing);
-            formData.append("rearWing", selectedParts.rearWing);
+            formData.append("chassis", selectedParts.chassis || "");
+            formData.append("engine", selectedParts.engine || "");
+            formData.append("tires", selectedParts.tires || "");
+            formData.append("frontWing", selectedParts.frontWing || "");
+            formData.append("rearWing", selectedParts.rearWing || "");
             fetch("/save_car_build", {
                 method: "POST",
                 body: formData
@@ -570,11 +570,11 @@
 
             const formData = new FormData();
             formData.append("player_id", playerId);
-            formData.append("chassis", selectedParts.chassis);
-            formData.append("engine", selectedParts.engine);
-            formData.append("tires", selectedParts.tires);
-            formData.append("frontWing", selectedParts.frontWing);
-            formData.append("rearWing", selectedParts.rearWing);
+            formData.append("chassis", selectedParts.chassis || "");
+            formData.append("engine", selectedParts.engine || "");
+            formData.append("tires", selectedParts.tires || "");
+            formData.append("frontWing", selectedParts.frontWing || "");
+            formData.append("rearWing", selectedParts.rearWing || "");
 
             fetch("/save_car_build", {
                 method: "POST",

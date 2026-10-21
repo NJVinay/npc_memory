@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional, Any
+import re
 import time
 import os
 
@@ -210,6 +211,7 @@ CRITICAL INSTRUCTIONS:
 4. Be conversational and helpful like a real engineer - avoid repetitive apologies
 5. ONLY mention valid F1 parts: Standard Monocoque/Ground Effect chassis, 2004 V10/2006 V8 engines, C5 Slick/Full Wet tires, High Lift/Simple Outwash front wings, High Downforce/Low Drag rear wings
 6. Use the player's name: {player_name} (NOT "Player12" or generic names)
+7. Keep it short: at most 3 sentences, plain text only (no markdown, bold, or lists)
 
 Player: "{player_dialogue}"
 
@@ -342,6 +344,16 @@ def generate_npc_response(
         
         # Remove any remaining "Dax:" patterns
         reply_text = reply_text.replace("Dax:", "").strip()
+
+        # Reasoning models (e.g. Qwen3) can emit a <think> block; the chat shows plain text, not markdown
+        reply_text = re.sub(r"<think>.*?(</think>|$)", "", reply_text, flags=re.DOTALL)
+        reply_text = reply_text.replace("**", "").strip()
+
+        # A reply cut off by the token limit ends mid-sentence; keep only the complete sentences
+        if reply_text and reply_text[-1] not in ".!?\"')":
+            last_sentence_end = max(reply_text.rfind(p) for p in ".!?")
+            if last_sentence_end > 0:
+                reply_text = reply_text[:last_sentence_end + 1]
         
         # If still empty or too short, provide context-appropriate fallback
         if not reply_text or len(reply_text.strip()) < 10:

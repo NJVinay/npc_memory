@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, Query
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,10 @@ from services import PlayerService, BuildService
 from dependencies import limiter
 
 router = APIRouter(tags=["Car Builds"])
+
+def _part_or_none(part: str) -> Optional[str]:
+    """An unselected part arrives as "" (or "null"/"undefined" from older pages); store it as None."""
+    return part if part and part.strip().lower() not in ("null", "undefined") else None
 
 @router.post("/save_car_build")
 @limiter.limit(config.RATE_LIMITS["general"])
@@ -32,16 +36,9 @@ async def save_car_build(
         raise HTTPException(status_code=404, detail="Player not found")
     
     try:
-        # Convert empty strings to None
-        chassis = chassis if chassis else None
-        engine = engine if engine else None
-        tires = tires if tires else None
-        front_wing = front_wing if front_wing else None
-        rear_wing = rear_wing if rear_wing else None
-        
         build = BuildService.create_build(
-            db, player_id, chassis, engine, tires,
-            front_wing, rear_wing
+            db, player_id, _part_or_none(chassis), _part_or_none(engine), _part_or_none(tires),
+            _part_or_none(front_wing), _part_or_none(rear_wing)
         )
         return {"status": "success", "message": "Build saved successfully!", "build_id": build.id}
     except Exception as e:

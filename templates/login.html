@@ -446,7 +446,7 @@
 
             <div class="consent-form-section">
                 <h3 style="color: #ffcc00; margin-top: 0;">AI Racing Engineer - F1 Car Builder</h3>
-                <p>Build your custom F1 car with Dax, your AI racing engineer. This interactive experience uses advanced AI (Groq API, Llama 3.1) to provide personalized recommendations through natural conversation.</p>
+                <p>Build your custom F1 car with Dax, your AI racing engineer. This interactive experience uses advanced AI (Groq API, Qwen3.8 27B) to provide personalized recommendations through natural conversation.</p>
                 <p style="margin-top: 15px;"><strong>Developer:</strong> Jyotir Vinay Naram | <strong>Tech Stack:</strong> FastAPI, PostgreSQL, OAuth 2.0</p>
             </div>
 
@@ -584,12 +584,9 @@
         }
 
         function agreeToConsent() {
-            // Validate required fields
+            // Validate required fields (the ones marked * in the form)
             const requiredFields = {
                 name: document.getElementById('participant_name').value.trim(),
-                course: document.getElementById('participant_course').value.trim(),
-                year: document.getElementById('current_year').value,
-                origin: document.getElementById('participant_origin').value.trim(),
                 gaming_experience: document.getElementById('gaming_experience').value,
                 ai_familiarity: document.getElementById('ai_familiarity').value
             };
@@ -605,18 +602,16 @@
             // Collect all demographic data
             consentData = {
                 name: requiredFields.name,
-                course: requiredFields.course,
+                course: document.getElementById('participant_course').value.trim(),
                 bth_email: document.getElementById('participant_email').value.trim(),
                 gender: document.getElementById('participant_gender').value,
-                current_year: requiredFields.year,
-                origin: requiredFields.origin,
+                origin: document.getElementById('participant_origin').value.trim(),
                 gaming_experience: requiredFields.gaming_experience,
                 ai_familiarity: requiredFields.ai_familiarity,
                 consent_participate: document.getElementById('consent_participate').checked,
                 consent_data: document.getElementById('consent_data').checked,
                 consent_age: document.getElementById('consent_age').checked,
                 consent_future: document.getElementById('consent_future').checked,
-                consent_results: document.getElementById('consent_results').checked,
                 consent_timestamp: new Date().toISOString()
             };
 
@@ -670,7 +665,7 @@
                         const consentWithPlayerId = {
                             ...JSON.parse(storedConsent),
                             player_id: data.player_id,
-                            study_uuid: uuid
+                            study_uuid: crypto.randomUUID()  // one consent record per login
                         };
 
                         // Send to backend (optional - non-blocking)
@@ -684,7 +679,7 @@
                     window.location.href = `/cover?player_id=${data.player_id}`;
                 })
                 .catch(err => {
-                    alert("Login failed. Please check your Study ID and PIN.");
+                    alert("Login failed. Please check your email and password.");
                 });
         }
 

@@ -31,6 +31,18 @@ def test_save_and_list_builds(client, player):
     assert build["timestamp"]
 
 
+def test_unselected_parts_are_stored_as_missing(client, player):
+    # Older TurboTom pages sent unselected parts as the strings "null"/"undefined"
+    client.post("/save_car_build", data={
+        "player_id": player["id"], "chassis": "Standard Monocoque",
+        "engine": "null", "tires": "undefined", "frontWing": "",
+    })
+
+    [build] = client.get(f"/get_builds/{player['id']}").json()
+    assert build["chassis"] == "Standard Monocoque"
+    assert [build["engine"], build["tires"], build["front_wing"], build["rear_wing"]] == [None] * 4
+
+
 def test_cannot_save_or_read_another_players_builds(client, player):
     other_id = player["id"] + 1000
     assert client.post("/save_car_build", data={"player_id": other_id, **FULL_BUILD}).status_code == 403

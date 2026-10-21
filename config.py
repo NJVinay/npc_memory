@@ -33,7 +33,7 @@ class Config:
     USE_EXTERNAL_LLM: bool = os.getenv("USE_EXTERNAL_LLM", "false").lower() == "true"
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
     
     MODEL_PATH: str = os.getenv("MODEL_PATH", "./models/mistral-7b-instruct-v0.1.Q2_K.gguf")
     MODEL_N_THREADS: int = int(os.getenv("MODEL_N_THREADS", "2"))
