@@ -267,19 +267,19 @@
 
                         // Progress conversation based on current node
                         if (currentNode === "chassisBuild" && category === "chassis") {
-                            progressConversation("Chassis selected.");
+                            progressConversation("Chassis selected.", "part_click");
                         }
                         if (currentNode === "engineBuild" && category === "engine") {
-                            progressConversation("Engine selected.");
+                            progressConversation("Engine selected.", "part_click");
                         }
                         if (currentNode === "tiresBuild" && category === "tires") {
-                            progressConversation("Tires chosen.");
+                            progressConversation("Tires chosen.", "part_click");
                         }
                         if (currentNode === "frontWingBuild" && category === "frontWing") {
-                            progressConversation("Front wing selected.");
+                            progressConversation("Front wing selected.", "part_click");
                         }
                         if (currentNode === "rearWingBuild" && category === "rearWing") {
-                            progressConversation("Rear wing locked in.");
+                            progressConversation("Rear wing locked in.", "part_click");
                         }
                     };
                     groupContainer.appendChild(card);
@@ -543,13 +543,35 @@
             chatLog.scrollTop = chatLog.scrollHeight;
         }
 
-        function progressConversation(choiceLabel) {
+        // Record each TurboTom exchange for the study (best effort, never blocks the dialogue).
+        // source: "static_option" for a clicked option, "part_click" when picking a part advanced the dialogue
+        function logTurn(choiceLabel, npcReply, source) {
+            fetch("/log_static_turn", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    player_id: Number(playerId),
+                    choice: choiceLabel,
+                    npc_reply: npcReply || null,
+                    source: source,
+                }),
+                keepalive: true,
+            }).then(res => {
+                if (!res.ok) console.error("Could not log turn:", res.status);
+            }).catch(err => console.error("Could not log turn:", err));
+        }
+
+        function progressConversation(choiceLabel, source = "static_option") {
             const node = storyFlow[currentNode];
             const nextKey = node.options[choiceLabel];
             const nextNode = storyFlow[nextKey];
+            logTurn(choiceLabel, nextNode ? nextNode.npc : null, source);
 
             if (!nextNode) {
-                console.error("No nextNode found for label:", choiceLabel);
+                // A closing option such as "Thanks, TurboTom!": end the dialogue instead of leaving a dead button
+                chatLog.innerHTML += `<div class="chat-bubble player"><strong>You:</strong> ${choiceLabel}</div>`;
+                optionsContainer.innerHTML = "<p class='text-gray-400 text-center'>You're all set! Click Submit Feedback when you're ready.</p>";
+                chatLog.scrollTop = chatLog.scrollHeight;
                 return;
             }
             chatLog.innerHTML += `<div class="chat-bubble player"><strong>You:</strong> ${choiceLabel}</div>`;

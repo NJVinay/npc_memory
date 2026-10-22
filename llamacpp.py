@@ -10,7 +10,7 @@ load_dotenv()
 from textblob import TextBlob
 
 from config import config
-from textblob import TextBlob
+from llm_adapter import LLMError, generate_llm_response
 
 # Initialize local LLM only if not using external API
 llm = None
@@ -42,21 +42,26 @@ PART_NAME_MAP: Dict[str, str] = {
     "low drag": "Low Drag"
 }
 
-# Valid F1 parts for validation
-VALID_F1_PARTS = list(PART_NAME_MAP.keys())
+# Every name the game uses for a part: the full names in the prompt, the short names in
+# the build summary Dax is shown, and the bare words (V10, monocoque, ...). Feeds mentions_part.
+PART_MENTION_NAMES = sorted(
+    set(PART_NAME_MAP)
+    | {name.lower() for name in PART_NAME_MAP.values()}
+    | {"ground effect optimized", "v10", "v8", "monocoque", "slick", "slicks", "outwash"},
+    key=len, reverse=True
+)
+PART_MENTION_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(name) for name in PART_MENTION_NAMES) + r")\b", re.IGNORECASE
+)
 
-# Invalid car brands (for hallucination detection)
-INVALID_CAR_BRANDS = [
-    "corvette", "porsche", "audi", "ferrari", "lamborghini",
-    "bmw", "mercedes", "toyota", "honda", "nissan",
-    "chevrolet", "ford"
-]
+# Road-car brands that point to an off-topic reply. Only flagged in the data, never
+# rewritten. F1 names (Ferrari, Mercedes, Honda, Audi and Ford in 2026, ...) and real F1
+# topics such as brakes or gears are legitimate race-engineer talk.
+OFF_TOPIC_BRANDS = ["corvette", "porsche", "lamborghini", "nissan", "chevrolet"]
+OFF_TOPIC_PATTERN = re.compile(r"\b(" + "|".join(OFF_TOPIC_BRANDS) + r")\b", re.IGNORECASE)
 
-# Invalid parts (for hallucination detection)
-INVALID_PARTS = [
-    "winglet", "sweep angle", "ride height", "suspension",
-    "brake", "gear", "differential", "turbo", "supercharger"
-]
+# End of a complete sentence: . ! or ? (optionally closing a quote) before whitespace or the end
+SENTENCE_END_PATTERN = re.compile(r"[.!?][\"')\]]?(?=\s|$)")
 
 def get_short_part_name(part: Optional[str]) -> str:
     """Return a concise, user-friendly part name.
@@ -200,6 +205,7 @@ def build_dax_prompt(
 BUILD STATUS: {build_status}
 CURRENT BUILD: {build_summary}
 NEXT ACTION: {next_action}
+TONE: {mood_instruction}
 
 RECENT CONVERSATION:
 {context_prompt}
@@ -245,8 +251,8 @@ def generate_npc_response(
     context_entries = []
     for entry in context[-20:]:  # Increased from 5 to 8 for better memory
         player_msg = entry.dialogue
-        npc_msg = entry.npc_reply
-        
+        npc_msg = entry.npc_reply or ""
+
         # Clean historical responses
         if npc_msg.startswith('{"response":'):
             try:
@@ -292,23 +298,22 @@ def generate_npc_response(
     full_prompt = build_dax_prompt(player_name, sentiment, mood_instruction, build_context, context_prompt, player_dialogue, is_first_message)
 
     # Generate response using local model or external API
+    start_time = time.time()
+    finish_reason = None
     try:
-        start_time = time.time()
-        
-        # Check if we should use external API
         if config.USE_EXTERNAL_LLM:
-            from llm_adapter import generate_llm_response
             llm_result = generate_llm_response(full_prompt, max_tokens=config.MODEL_MAX_TOKENS, temperature=config.MODEL_TEMPERATURE)
-            reply_text = llm_result.get("response", "I'm having trouble generating a response.")
+            reply_text = llm_result["response"]
+            finish_reason = llm_result.get("finish_reason")
         elif llm is None:
-            reply_text = "I'm Dax, your F1 mechanic. The local model isn't available right now."
+            raise LLMError("Local model is not loaded")
         else:
             # Use local GGUF model
             output = llm(
                 full_prompt,
                 max_tokens=config.MODEL_MAX_TOKENS,
                 temperature=config.MODEL_TEMPERATURE,
-                stop=["Player:", "Human:", "Dax:", "\n\n", "Corvette", "Porsche", "Audi", "Ferrari"],
+                stop=["Player:", "Human:", "Dax:", "\n\n"],
                 echo=False,
                 repeat_penalty=1.3
             )
@@ -316,125 +321,108 @@ def generate_npc_response(
             # Extract response text
             if isinstance(output, dict) and "choices" in output:
                 reply_text = output["choices"][0]["text"].strip()
+                finish_reason = output["choices"][0].get("finish_reason")
             elif hasattr(output, 'choices') and output.choices:
                 reply_text = output.choices[0].text.strip()
             else:
                 reply_text = str(output).strip()
-        
-        response_time = time.time() - start_time
-        
-        print(f"🔍 Raw LLM output: '{reply_text}'")
-        
-        # AGGRESSIVE CLEANING to fix "Dax: Dax:" and prompt leaking
-        # Remove all instances of "Dax:" at the start
-        while reply_text.startswith("Dax:"):
-            reply_text = reply_text[4:].strip()
-        
-        # Remove prompt instructions that leaked through
-        if "Player Message:" in reply_text:
-            reply_text = reply_text.split("Player Message:")[0].strip()
-        if "Respond as Dax" in reply_text:
-            reply_text = reply_text.split("Respond as Dax")[0].strip()
-        
-        # Remove quotes if they wrap the response
-        if reply_text.startswith('"') and reply_text.endswith('"'):
-            reply_text = reply_text[1:-1]
-        elif reply_text.startswith('"'):
-            reply_text = reply_text[1:]
-        
-        # Remove any remaining "Dax:" patterns
-        reply_text = reply_text.replace("Dax:", "").strip()
-
-        # Reasoning models (e.g. Qwen3) can emit a <think> block; the chat shows plain text, not markdown
-        reply_text = re.sub(r"<think>.*?(</think>|$)", "", reply_text, flags=re.DOTALL)
-        reply_text = reply_text.replace("**", "").strip()
-
-        # A reply cut off by the token limit ends mid-sentence; keep only the complete sentences
-        if reply_text and reply_text[-1] not in ".!?\"')":
-            last_sentence_end = max(reply_text.rfind(p) for p in ".!?")
-            if last_sentence_end > 0:
-                reply_text = reply_text[:last_sentence_end + 1]
-        
-        # If still empty or too short, provide context-appropriate fallback
-        if not reply_text or len(reply_text.strip()) < 10:
-            # Generate context-appropriate fallback based on build status
-            if build and all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
-                reply_text = f"Perfect build, {player_name}! Your car is race-ready. Focus on your racing line and you'll do great!"
-            elif build:
-                missing_parts = []
-                if not build.chassis or build.chassis == "": missing_parts.append("chassis")
-                if not build.engine or build.engine == "": missing_parts.append("engine") 
-                if not build.tires or build.tires == "": missing_parts.append("tires")
-                if not build.front_wing or build.front_wing == "": missing_parts.append("front wing")
-                if not build.rear_wing or build.rear_wing == "": missing_parts.append("rear wing")
-                
-                if missing_parts:
-                    next_part = missing_parts[0]
-                    reply_text = f"Let's focus on selecting your {next_part} next, {player_name}."
-                else:
-                    reply_text = f"Great progress on your build, {player_name}! How are you feeling about the setup?"
-            else:
-                reply_text = f"Hey {player_name}! Let's start building your F1 car. What would you like to work on first?"
-        
-        print(f"🔍 Cleaned response: '{reply_text}'")
-            
-        sentiment_score = TextBlob(reply_text).sentiment.polarity
-        npc_sentiment_label = 'positive' if sentiment_score > 0.1 else 'negative' if sentiment_score < -0.1 else 'neutral'
-        print(f"📊 NPC SENTIMENT: '{reply_text[:50]}...' → {npc_sentiment_label} (score: {sentiment_score})")
-
-        # Detect valid F1 parts and hallucinations
-        accurate = any(part in reply_text.lower() for part in VALID_F1_PARTS)
-        has_invalid_cars = any(car in reply_text.lower() for car in INVALID_CAR_BRANDS)
-        has_invalid_parts = any(invalid in reply_text.lower() for invalid in INVALID_PARTS)
-        
-        # STRICT HALLUCINATION CORRECTION
-        if has_invalid_cars or has_invalid_parts:
-            print(f"⚠️ MAJOR HALLUCINATION DETECTED: Non-F1 content mentioned!")
-            # Force correct F1 response based on build status
-            if build and all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
-                reply_text = f"Perfect F1 setup, {player_name}! Your car is race-ready with all components selected."
-            elif not build or not any([build.chassis if build else None, build.engine if build else None, build.tires if build else None]):
-                reply_text = f"Let's build your F1 car, {player_name}. Start by choosing a chassis: Standard Monocoque or Ground Effect Optimized."
-            else:
-                # Determine what's missing
-                missing = []
-                if not build.chassis or build.chassis == "": missing.append("chassis")
-                elif not build.engine or build.engine == "": missing.append("engine")
-                elif not build.tires or build.tires == "": missing.append("tires") 
-                elif not build.front_wing or build.front_wing == "": missing.append("front wing")
-                elif not build.rear_wing or build.rear_wing == "": missing.append("rear wing")
-                
-                if missing:
-                    next_part = missing[0]
-                    if next_part == "chassis":
-                        reply_text = f"Now choose your F1 chassis: Standard Monocoque or Ground Effect Optimized."
-                    elif next_part == "engine":
-                        reply_text = f"Great! Now pick your F1 engine: 2004 V10 or 2006 V8."
-                    elif next_part == "tires":
-                        reply_text = f"Next, select F1 tires: C5 Slick or Full Wet."
-                    elif next_part == "front wing":
-                        reply_text = f"Choose your front wing: High Lift or Simple Outwash."
-                    else:
-                        reply_text = f"Finally, pick your rear wing: High Downforce or Low Drag."
-                else:
-                    reply_text = f"Let's focus on your F1 car setup, {player_name}."
-            
-            accurate = True  # Force accuracy since we corrected it
-        
-        print(f"🎯 ACCURACY: Mentions car parts: {accurate} ('✅' if accurate else '❌')")
-
-        return {
-            "response": reply_text,
-            "response_time_sec": round(response_time, 2),
-            "sentiment_score": round(sentiment_score, 3),
-            "mentions_part": accurate
-        }
-
     except Exception as e:
-        print(f"Error running LLaMA model: {e}")
-        return {
-            "response": "⚠️ Error generating response from local model.",
-            "response_time_sec": None,
-            "sentiment_score": None,
-            "mentions_part": False
-        }
+        print(f"❌ LLM generation failed: {e}")
+        return _llm_error_result(start_time)
+
+    response_time = time.time() - start_time
+    raw_reply = reply_text
+    print(f"🔍 Raw LLM output: '{reply_text}'")
+
+    # AGGRESSIVE CLEANING to fix "Dax: Dax:" and prompt leaking
+    # Remove all instances of "Dax:" at the start
+    while reply_text.startswith("Dax:"):
+        reply_text = reply_text[4:].strip()
+
+    # Remove prompt instructions that leaked through
+    if "Player Message:" in reply_text:
+        reply_text = reply_text.split("Player Message:")[0].strip()
+    if "Respond as Dax" in reply_text:
+        reply_text = reply_text.split("Respond as Dax")[0].strip()
+
+    # Remove quotes if they wrap the response
+    if reply_text.startswith('"') and reply_text.endswith('"'):
+        reply_text = reply_text[1:-1]
+    elif reply_text.startswith('"'):
+        reply_text = reply_text[1:]
+
+    # Remove any remaining "Dax:" patterns
+    reply_text = reply_text.replace("Dax:", "").strip()
+
+    # Reasoning models (e.g. Qwen3) can emit a <think> block. A block that never closes
+    # means the token limit ran out while reasoning, so there is no reply at all.
+    reply_text = re.sub(r"<think>.*?</think>", "", reply_text, flags=re.DOTALL)
+    if "<think>" in reply_text:
+        print("❌ LLM reply was cut off inside its reasoning")
+        return _llm_error_result(start_time, raw_reply)
+    # The chat shows plain text, not markdown
+    reply_text = reply_text.replace("**", "").strip()
+
+    # A reply cut off by the token limit ends mid-sentence; keep only the complete sentences
+    if finish_reason == "length":
+        sentence_ends = list(SENTENCE_END_PATTERN.finditer(reply_text))
+        if sentence_ends:
+            reply_text = reply_text[:sentence_ends[-1].end()]
+
+    status = "ok"
+    # If still empty or too short, provide context-appropriate fallback
+    if not reply_text or len(reply_text.strip()) < 10:
+        status = "fallback"
+        # Generate context-appropriate fallback based on build status
+        if build and all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
+            reply_text = f"Perfect build, {player_name}! Your car is race-ready. Focus on your racing line and you'll do great!"
+        elif build:
+            missing_parts = []
+            if not build.chassis or build.chassis == "": missing_parts.append("chassis")
+            if not build.engine or build.engine == "": missing_parts.append("engine") 
+            if not build.tires or build.tires == "": missing_parts.append("tires")
+            if not build.front_wing or build.front_wing == "": missing_parts.append("front wing")
+            if not build.rear_wing or build.rear_wing == "": missing_parts.append("rear wing")
+
+            if missing_parts:
+                next_part = missing_parts[0]
+                reply_text = f"Let's focus on selecting your {next_part} next, {player_name}."
+            else:
+                reply_text = f"Great progress on your build, {player_name}! How are you feeling about the setup?"
+        else:
+            reply_text = f"Hey {player_name}! Let's start building your F1 car. What would you like to work on first?"
+
+    print(f"🔍 Cleaned response: '{reply_text}'")
+
+    sentiment_score = TextBlob(reply_text).sentiment.polarity
+    npc_sentiment_label = 'positive' if sentiment_score > 0.1 else 'negative' if sentiment_score < -0.1 else 'neutral'
+    print(f"📊 NPC SENTIMENT: '{reply_text[:50]}...' → {npc_sentiment_label} (score: {sentiment_score})")
+
+    # Does the reply name one of the game's parts, and does it drift to road cars?
+    accurate = bool(PART_MENTION_PATTERN.search(reply_text))
+    if status == "ok" and OFF_TOPIC_PATTERN.search(reply_text):
+        status = "off_topic"
+        print("⚠️ Off-topic reply flagged (road-car brand mentioned)")
+
+    print(f"🎯 ACCURACY: Mentions car parts: {accurate} ('✅' if accurate else '❌')")
+
+    return {
+        "response": reply_text,
+        "status": status,
+        "raw_reply": raw_reply,
+        "response_time_sec": round(response_time, 2),
+        "sentiment_score": round(sentiment_score, 3),
+        "mentions_part": accurate
+    }
+
+
+def _llm_error_result(start_time: float, raw_reply: Optional[str] = None) -> Dict[str, Any]:
+    """Result for a turn where the LLM produced no usable reply; nothing is shown as Dax's answer."""
+    return {
+        "response": None,
+        "status": "llm_error",
+        "raw_reply": raw_reply,
+        "response_time_sec": round(time.time() - start_time, 2),
+        "sentiment_score": None,
+        "mentions_part": None
+    }

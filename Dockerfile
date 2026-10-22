@@ -32,5 +32,7 @@ ENV PORT=10000
 
 EXPOSE ${PORT}
 
-# Run the application — $PORT is expanded at runtime by the shell
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+# Run the application — $PORT is expanded at runtime by the shell.
+# Render's proxy terminates HTTPS; trusting its X-Forwarded-* headers makes generated
+# URLs (the OAuth redirect_uri) https. Rate limits read the client address themselves.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]

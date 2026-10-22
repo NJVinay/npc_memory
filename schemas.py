@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, EmailStr
@@ -52,12 +52,31 @@ class NPCMemoryUpdate(BaseModel):
 class NPCMemoryResponse(NPCMemoryCreate):
     """Schema for NPC interaction responses (includes all fields)."""
     id: int = Field(..., description="Unique interaction ID")
-    sentiment: str = Field(..., description="Detected player sentiment")
+    sentiment: Optional[str] = Field(None, description="Detected player sentiment (none for TurboTom choices)")
     npc_reply: Optional[str] = Field(None, description="NPC's response")
     npc_sentiment: Optional[str] = Field(None, description="NPC response sentiment")
+    source: Optional[str] = Field(None, description="typed, part_click or static_option")
+    reply_status: Optional[str] = Field(None, description="ok, off_topic, fallback, llm_error or scripted")
     timestamp: datetime = Field(..., description="When the interaction occurred")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StaticTurnCreate(BaseModel):
+    """One TurboTom exchange: the option the player chose and TurboTom's scripted answer."""
+    player_id: int = Field(..., gt=0, description="ID of the player")
+    choice: str = Field(..., min_length=1, max_length=200, description="Option label the player clicked")
+    npc_reply: Optional[str] = Field(None, max_length=1000, description="TurboTom's answer (none at a dead end)")
+    source: Literal["static_option", "part_click"] = Field(
+        "static_option", description="static_option for a clicked option, part_click when picking a part advanced the dialogue"
+    )
+
+    @field_validator('choice')
+    @classmethod
+    def validate_choice(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Choice cannot be empty or whitespace only")
+        return v.strip()
 
 
 # =============================================================================
@@ -129,7 +148,7 @@ class CarBuildResponse(BaseModel):
 class ConsentCreate(BaseModel):
     """Schema for creating a new consent record."""
     player_id: int = Field(..., gt=0, description="ID of the player")
-    study_uuid: str = Field(..., min_length=1, max_length=255, description="Unique study identifier")
+    study_uuid: Optional[str] = Field(None, max_length=255, description="Ignored: the server records the study id (STUDY_ID)")
     name: str = Field(..., min_length=1, max_length=255, description="Participant's full name")
     course: Optional[str] = Field(None, max_length=100, description="Academic course")
     bth_email: Optional[str] = Field(None, max_length=255, description="BTH email address")
@@ -144,17 +163,23 @@ class ConsentCreate(BaseModel):
     consent_future: bool = Field(False, description="Consent for future contact")
     consent_results: bool = Field(False, description="Consent to receive results")
     
-    @field_validator('name', 'study_uuid')
+    @field_validator('name')
     @classmethod
     def validate_required_strings(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Required fields cannot be empty")
         return v.strip()
-    
+
+    @field_validator('consent_participate', 'consent_data', 'consent_age')
+    @classmethod
+    def validate_required_consents(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("This consent is required to take part in the study")
+        return v
+
     model_config = ConfigDict(json_schema_extra={
         "example": {
             "player_id": 1,
-            "study_uuid": "550e8400-e29b-41d4-a716-446655440000",
             "name": "John Doe",
             "consent_participate": True,
             "consent_data": True,

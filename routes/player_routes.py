@@ -11,7 +11,7 @@ from auth import set_auth_cookies
 from models import Player
 from schemas import PlayerCreate, PlayerResponse
 from services import PlayerService
-from dependencies import limiter, require_service_key, is_email_allowed
+from dependencies import limiter, require_admin_key, is_email_allowed
 
 router = APIRouter(tags=["Players"])
 from fastapi.templating import Jinja2Templates
@@ -23,7 +23,7 @@ def create_player(
     request: Request, # Fix for slowapi crash
     player: PlayerCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(require_service_key)
+    _: None = Depends(require_admin_key)
 ) -> PlayerResponse:
     existing = db.query(Player).filter(Player.name == player.name).first()
     if existing: 
@@ -39,7 +39,7 @@ def get_players(
     skip: int = Query(0, ge=0),
     limit: int = Query(config.DEFAULT_PAGE_SIZE, ge=1, le=config.MAX_PAGE_SIZE),
     db: Session = Depends(get_db),
-    _: None = Depends(require_service_key)
+    _: None = Depends(require_admin_key)
 ) -> List[PlayerResponse]:
     return PlayerService.get_all_players(db, skip=skip, limit=limit)
 
@@ -48,7 +48,7 @@ def player_form(request: Request):
     return templates.TemplateResponse(request, "create_player.html")
 
 @router.post("/create_player_form")
-@limiter.limit("3/minute")
+@limiter.limit(config.RATE_LIMITS["register"])
 def create_player_from_form(
     request: Request,
     name: str = Form(...),
@@ -83,7 +83,7 @@ def create_player_from_form(
     })
 
 @router.post("/verify_player")
-@limiter.limit("5/minute")
+@limiter.limit(config.RATE_LIMITS["login"])
 def verify_player(
     request: Request,
     response: Response,

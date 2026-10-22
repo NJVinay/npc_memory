@@ -9,15 +9,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-import random
 from typing import Optional
 
 # Component imports
-from database import engine, Base, get_db
-from dependencies import limiter
+from database import engine, Base, get_db, add_missing_columns
+from dependencies import limiter, CONSENT_REQUIRED_URL, CONDITION_PAGES
 from llamacpp import get_short_part_name
 from auth import get_current_user, renew_expired_session
-from services import PlayerService, ChatService, BuildService
+from services import PlayerService, ChatService, BuildService, StudyService
 import oauth_routes
 from routes import npc_routes, build_routes, player_routes, consent_routes
 
@@ -74,11 +73,34 @@ app.include_router(consent_routes.router)
 try:
     print("🚀 Initializing database tables...")
     Base.metadata.create_all(bind=engine)
+    # create_all doesn't add new columns to tables that already exist
+    add_missing_columns(engine, Base.metadata)
     print("✅ Database tables initialized")
 except Exception as e:
-    print(f"❌ Database init error: {e}")
+    print(f"❌ Database init error: {type(e).__name__}")
 
 # --- Root & Base UI Routes ---
+
+def _authorized_player_id(user: dict, player_id: Optional[int]) -> int:
+    """The logged-in player's id; a player_id belonging to anyone else is refused."""
+    user_id = int(user.get("sub"))
+    if player_id is not None and player_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this player")
+    return user_id
+
+def _study_redirect(db: Session, player_id: int, page_condition: Optional[str] = None) -> Optional[RedirectResponse]:
+    """Where a study page should send the player instead, if anywhere.
+
+    Players without study consent go to the consent step. On a condition's page,
+    players assigned to the other condition go to their own page.
+    """
+    if not StudyService.has_valid_consent(db, player_id):
+        return RedirectResponse(CONSENT_REQUIRED_URL, status_code=303)
+    if page_condition:
+        condition = StudyService.get_or_assign_condition(db, player_id)
+        if condition != page_condition:
+            return RedirectResponse(f"{CONDITION_PAGES[condition]}?player_id={player_id}", status_code=303)
+    return None
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 @app.get("/login", response_class=HTMLResponse, tags=["UI"])
@@ -89,10 +111,13 @@ def login_page(request: Request) -> HTMLResponse:
 def cover_page(
     request: Request,
     player_id: int,
+    db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ):
-    if str(user.get("sub")) != str(player_id):
-        raise HTTPException(status_code=403, detail="Not authorized for this player")
+    player_id = _authorized_player_id(user, player_id)
+    redirect = _study_redirect(db, player_id)
+    if redirect:
+        return redirect
     return templates.TemplateResponse(request, "cover.html", {
         "player_id": player_id
     })
@@ -104,14 +129,16 @@ def get_chat(
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ) -> HTMLResponse:
-    user_id = int(user.get("sub"))
-    if player_id is None:
-        player_id = user_id
-    elif player_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized for this player")
-        
+    player_id = _authorized_player_id(user, player_id)
+    redirect = _study_redirect(db, player_id, "dax")
+    if redirect:
+        return redirect
+
     player = PlayerService.get_player_by_id(db, player_id)
-    chat_history = ChatService.get_conversation_history(db, player_id, limit=50)
+    # The conversation as the player saw it: Dax turns that got a reply
+    chat_history = ChatService.get_conversation_history(
+        db, player_id, limit=50, npc_id=config.DEFAULT_NPC_ID, exclude_statuses=("llm_error",)
+    )
     latest_build = BuildService.get_latest_build(db, player_id)
 
     intro_message = ""
@@ -133,10 +160,16 @@ def get_chat(
 @app.get("/chat_static", response_class=HTMLResponse, tags=["UI"])
 def get_static_chat(
     request: Request,
+    player_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ) -> HTMLResponse:
-    player = PlayerService.get_player_by_id(db, int(user.get("sub")))
+    player_id = _authorized_player_id(user, player_id)
+    redirect = _study_redirect(db, player_id, "static")
+    if redirect:
+        return redirect
+
+    player = PlayerService.get_player_by_id(db, player_id)
     return templates.TemplateResponse(request, "chat_static.html", {
         "players": [player] if player else []
     })
@@ -144,13 +177,16 @@ def get_static_chat(
 @app.get("/start_chat", tags=["Navigation"])
 def start_chat(
     player_id: int = Query(...),
+    db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ) -> RedirectResponse:
-    if str(user.get("sub")) != str(player_id):
-        raise HTTPException(status_code=403, detail="Not authorized for this player")
-    npc = random.choice(["dax", "static"])
-    target = "/chat" if npc == "dax" else "/chat_static"
-    return RedirectResponse(f"{target}?player_id={player_id}")
+    player_id = _authorized_player_id(user, player_id)
+    redirect = _study_redirect(db, player_id)
+    if redirect:
+        return redirect
+    # Drawn once and kept, so a participant never sees both NPCs
+    condition = StudyService.get_or_assign_condition(db, player_id)
+    return RedirectResponse(f"{CONDITION_PAGES[condition]}?player_id={player_id}")
 
 @app.get("/terms", response_class=HTMLResponse, tags=["UI"])
 def terms_page(request: Request) -> HTMLResponse:
@@ -166,7 +202,9 @@ def health_check(db: Session = Depends(get_db)) -> dict:
         db.execute(text("SELECT 1"))
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
+        # Keep database details (host, driver, user) out of a public endpoint
+        print(f"❌ Health check failed: {type(e).__name__}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")
 
 if __name__ == "__main__":
     import uvicorn

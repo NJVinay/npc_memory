@@ -74,8 +74,13 @@ class Config:
     CONTEXT_WINDOW: int = int(os.getenv("CONTEXT_WINDOW", "15"))  # Send more to LLM for better memory
     
     # NPC Settings
-    DEFAULT_NPC_ID: int = int(os.getenv("DEFAULT_NPC_ID", "1"))
-    
+    DEFAULT_NPC_ID: int = int(os.getenv("DEFAULT_NPC_ID", "1"))  # Dax
+    STATIC_NPC_ID: int = 2  # TurboTom, the scripted NPC
+
+    # Study Settings
+    STUDY_ID: str = os.getenv("STUDY_ID", "npc-memory-study")  # One consent record per player per study
+    STUDY_CONDITIONS = ("dax", "static")  # Between-subjects conditions, assigned once per player
+
     # Pagination Settings
     DEFAULT_PAGE_SIZE: int = int(os.getenv("DEFAULT_PAGE_SIZE", "50"))
     MAX_PAGE_SIZE: int = int(os.getenv("MAX_PAGE_SIZE", "100"))
@@ -88,10 +93,12 @@ class Config:
     )
     
     # Rate Limiting (from security_config.py)
+    # Keyed per client IP, except chat_api which is per player. Login/register allow for a
+    # lab of participants sharing one public IP.
     RATE_LIMITS: Dict[str, str] = {
-        "chat_api": "30/minute",  # Groq free tier limit
-        "login": "5/minute",  # Prevent brute force
-        "register": "3/minute",  # Prevent spam
+        "chat_api": "30/minute",  # Per player
+        "login": "20/minute",  # Prevent brute force
+        "register": "10/minute",  # Prevent spam
         "general": "100/minute"  # General API rate limit
     }
     

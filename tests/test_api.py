@@ -68,9 +68,9 @@ def test_create_player_api_requires_service_key(client):
     assert r.status_code == 401
 
 
-def test_store_consent(client, player):
+def test_store_consent(client, logged_in_player):
     r = client.post("/store_consent", json={
-        "player_id": player["id"], "study_uuid": str(uuid.uuid4()), "name": "Test Driver",
+        "player_id": logged_in_player["id"], "name": "Test Driver",
         "consent_participate": True, "consent_data": True, "consent_age": True,
     })
     assert r.status_code == 200, r.text

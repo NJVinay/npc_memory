@@ -3,13 +3,16 @@ Service layer for business logic separation.
 Handles player management, chat operations, and build management.
 """
 
+import os
+import random
 import bcrypt
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Sequence
+from sqlalchemy import func
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from config import config
-from models import Player, NPCMemory, CarBuild, Consent
+from models import Player, NPCMemory, CarBuild, Consent, StudyAssignment
 from schemas import PlayerCreate, ConsentCreate
 from sentiment import analyze_sentiment
 from llamacpp import generate_npc_response
@@ -174,13 +177,18 @@ class PlayerService:
 
 class ChatService:
     """Handles chat and NPC interaction operations."""
-    
+
+    # Turns kept out of Dax's memory: no reply was shown (llm_error) or the reply was canned (fallback)
+    NOT_IN_MEMORY = ("llm_error", "fallback")
+
     @staticmethod
     def get_conversation_history(
         db: Session,
         player_id: int,
         limit: int = config.MAX_CONVERSATION_HISTORY,
-        before_id: Optional[int] = None
+        before_id: Optional[int] = None,
+        npc_id: Optional[int] = None,
+        exclude_statuses: Sequence[str] = ()
     ) -> List[NPCMemory]:
         """Get conversation history for a player (newest first, then reversed).
 
@@ -189,6 +197,8 @@ class ChatService:
             player_id: Player's ID
             limit: Maximum number of messages to retrieve
             before_id: Only include messages created before this interaction
+            npc_id: Only include turns with this NPC
+            exclude_statuses: Leave out turns with these reply statuses
 
         Returns:
             List of NPCMemory objects in chronological order (oldest first)
@@ -196,6 +206,13 @@ class ChatService:
         query = db.query(NPCMemory).filter(NPCMemory.player_id == player_id)
         if before_id is not None:
             query = query.filter(NPCMemory.id < before_id)
+        if npc_id is not None:
+            query = query.filter(NPCMemory.npc_id == npc_id)
+        if exclude_statuses:
+            # Older rows have no status and count as ordinary replies
+            query = query.filter(
+                (NPCMemory.reply_status.is_(None)) | (NPCMemory.reply_status.notin_(exclude_statuses))
+            )
 
         history = (
             query
@@ -204,7 +221,43 @@ class ChatService:
             .all()
         )
         return list(reversed(history))
-    
+
+    @staticmethod
+    def get_memory_for_prompt(db: Session, player_id: int, before_id: Optional[int] = None) -> List[NPCMemory]:
+        """Dax's memory: earlier turns with Dax whose reply the player actually saw."""
+        return ChatService.get_conversation_history(
+            db, player_id,
+            limit=config.MAX_CONVERSATION_HISTORY,
+            before_id=before_id,
+            npc_id=config.DEFAULT_NPC_ID,
+            exclude_statuses=ChatService.NOT_IN_MEMORY
+        )
+
+    @staticmethod
+    def _apply_npc_reply(memory: NPCMemory, result: Dict[str, Any]) -> None:
+        """Copy a generate_npc_response result (reply, status and metrics) onto a memory row."""
+        reply = result.get("response")
+        response_time = result.get("response_time_sec")
+        memory.npc_reply = reply
+        memory.npc_sentiment = analyze_sentiment(reply) if reply else None
+        memory.reply_status = result.get("status", "ok")
+        memory.raw_reply = result.get("raw_reply")
+        memory.mentions_part = result.get("mentions_part")
+        memory.response_time_ms = int(response_time * 1000) if response_time is not None else None
+        memory.llm_model = (
+            f"{config.LLM_PROVIDER}:{config.LLM_MODEL}" if config.USE_EXTERNAL_LLM
+            else f"local:{os.path.basename(config.MODEL_PATH)}"
+        )
+
+    @staticmethod
+    def _generate(dialogue: str, sentiment: str, player_id: int, context: List[NPCMemory],
+                  player_name: str, build: Optional[CarBuild]) -> Dict[str, Any]:
+        try:
+            return generate_npc_response(dialogue, sentiment, player_id, context, player_name, build=build)
+        except Exception as e:
+            print(f"⚠️ LLM generation failed: {e}")
+            return {"response": None, "status": "llm_error"}
+
     @staticmethod
     def create_interaction(
         db: Session,
@@ -213,10 +266,11 @@ class ChatService:
         dialogue: str,
         context: List[NPCMemory],
         player_name: str,
-        build: Optional[CarBuild] = None
+        build: Optional[CarBuild] = None,
+        source: str = "typed"
     ) -> NPCMemory:
         """Create a new chat interaction with NPC response.
-        
+
         Args:
             db: Database session
             player_id: Player's ID
@@ -225,55 +279,152 @@ class ChatService:
             context: Conversation history
             player_name: Player's display name
             build: Optional car build for context
-            
+            source: How the message was produced: "typed" or "part_click"
+
         Returns:
-            Created NPCMemory object
+            Created NPCMemory object. A turn where the LLM failed is still stored,
+            with reply_status "llm_error" and no npc_reply.
         """
-        # Analyze player sentiment
         player_sentiment = analyze_sentiment(dialogue)
-        
-        # Generate NPC response with error handling
+        result = ChatService._generate(dialogue, player_sentiment, player_id, context, player_name, build)
+
+        memory = NPCMemory(
+            player_id=player_id,
+            npc_id=npc_id,
+            dialogue=dialogue,
+            sentiment=player_sentiment,
+            source=source
+        )
+        ChatService._apply_npc_reply(memory, result)
+
         try:
-            npc_reply_obj = generate_npc_response(
-                dialogue,
-                player_sentiment,
-                player_id,
-                context,
-                player_name,
-                build=build
-            )
-            npc_reply_text = (
-                npc_reply_obj["response"]
-                if isinstance(npc_reply_obj, dict)
-                else str(npc_reply_obj)
-            )
-        except Exception as e:
-            print(f"⚠️ LLM generation failed: {e}. Using fallback response.")
-            npc_reply_text = f"Hey {player_name}! I'm having trouble with my systems right now. Let's talk about your F1 car build!"
-        
-        # Analyze NPC sentiment
-        npc_sentiment = analyze_sentiment(npc_reply_text)
-        
-        # Create memory record
-        try:
-            memory = NPCMemory(
-                player_id=player_id,
-                npc_id=npc_id,
-                dialogue=dialogue,
-                sentiment=player_sentiment,
-                npc_reply=npc_reply_text,
-                npc_sentiment=npc_sentiment
-            )
-            
             db.add(memory)
             db.commit()
             db.refresh(memory)
-            
             return memory
         except SQLAlchemyError as e:
             db.rollback()
             print(f"❌ Database error creating interaction: {e}")
             raise
+
+    @staticmethod
+    def update_interaction(
+        db: Session,
+        memory: NPCMemory,
+        dialogue: str,
+        context: List[NPCMemory],
+        player_name: str,
+        build: Optional[CarBuild] = None
+    ) -> Optional[NPCMemory]:
+        """Replace the player's message on an existing turn and regenerate the NPC reply.
+
+        Returns None, leaving the turn unchanged, if the LLM produced no reply.
+        """
+        sentiment = analyze_sentiment(dialogue)
+        result = ChatService._generate(dialogue, sentiment, memory.player_id, context, player_name, build)
+        if result.get("status") == "llm_error":
+            return None
+
+        memory.dialogue = dialogue
+        memory.sentiment = sentiment
+        ChatService._apply_npc_reply(memory, result)
+
+        try:
+            db.commit()
+            db.refresh(memory)
+            return memory
+        except SQLAlchemyError as e:
+            db.rollback()
+            print(f"❌ Database error updating interaction: {e}")
+            raise
+
+    @staticmethod
+    def log_static_turn(
+        db: Session,
+        player_id: int,
+        choice: str,
+        npc_reply: Optional[str],
+        source: str = "static_option"
+    ) -> NPCMemory:
+        """Record one TurboTom exchange: the option chosen (or advanced by a part pick) and TurboTom's scripted answer."""
+        memory = NPCMemory(
+            player_id=player_id,
+            npc_id=config.STATIC_NPC_ID,
+            dialogue=choice,
+            npc_reply=npc_reply,
+            source=source,
+            reply_status="scripted"
+        )
+        try:
+            db.add(memory)
+            db.commit()
+            db.refresh(memory)
+            return memory
+        except SQLAlchemyError as e:
+            db.rollback()
+            print(f"❌ Database error logging TurboTom turn: {e}")
+            raise
+
+
+# =============================================================================
+# Study Service
+# =============================================================================
+
+class StudyService:
+    """Study consent and the Dax / TurboTom condition each player is assigned to."""
+
+    @staticmethod
+    def has_valid_consent(db: Session, player_id: int) -> bool:
+        """True if the player has given all three required consents."""
+        return db.query(Consent.id).filter(
+            Consent.player_id == player_id,
+            Consent.consent_participate.is_(True),
+            Consent.consent_data.is_(True),
+            Consent.consent_age.is_(True)
+        ).first() is not None
+
+    @staticmethod
+    def get_condition(db: Session, player_id: int) -> Optional[str]:
+        assignment = db.get(StudyAssignment, player_id)
+        return assignment.condition if assignment else None
+
+    @staticmethod
+    def get_or_assign_condition(db: Session, player_id: int) -> str:
+        """Return the player's condition, assigning one the first time.
+
+        A player who already talked to Dax before assignments were recorded stays
+        with Dax (reason "prior_dax_history", so analysis can tell them apart).
+        Everyone else goes to the condition with fewer participants so far (ties
+        broken at random), which keeps the two groups the same size.
+        """
+        existing = StudyService.get_condition(db, player_id)
+        if existing:
+            return existing
+
+        seen_dax = db.query(NPCMemory.id).filter(
+            NPCMemory.player_id == player_id,
+            NPCMemory.npc_id == config.DEFAULT_NPC_ID
+        ).first() is not None
+        if seen_dax:
+            condition, reason = "dax", "prior_dax_history"
+        else:
+            counts = dict(
+                db.query(StudyAssignment.condition, func.count())
+                .group_by(StudyAssignment.condition)
+                .all()
+            )
+            fewest = min(counts.get(c, 0) for c in config.STUDY_CONDITIONS)
+            condition = random.choice([c for c in config.STUDY_CONDITIONS if counts.get(c, 0) == fewest])
+            reason = "balanced"
+
+        db.add(StudyAssignment(player_id=player_id, condition=condition, reason=reason))
+        try:
+            db.commit()
+        except IntegrityError:
+            # A concurrent request assigned this player first; keep that assignment
+            db.rollback()
+            return StudyService.get_condition(db, player_id)
+        return condition
 
 
 # =============================================================================
@@ -382,23 +533,25 @@ class ConsentService:
     @staticmethod
     def create_consent(db: Session, consent_data: ConsentCreate) -> Consent:
         """Create a new consent record.
-        
+
         Args:
             db: Database session
             consent_data: Validated consent data
-            
+
         Returns:
-            Created Consent object
+            Created Consent object. Raises IntegrityError if the player already
+            has a consent record for this study.
         """
         try:
-            consent = Consent(**consent_data.model_dump())
+            # One record per player per study: the study id is set here, not by the client
+            consent = Consent(**consent_data.model_dump(exclude={"study_uuid"}), study_uuid=config.STUDY_ID)
             db.add(consent)
             db.commit()
             db.refresh(consent)
             return consent
         except SQLAlchemyError as e:
             db.rollback()
-            print(f"❌ Database error creating consent: {e}")
+            print(f"❌ Database error creating consent for player {consent_data.player_id}: {type(e).__name__}")
             raise
     
     @staticmethod

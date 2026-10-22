@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
 
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     envVars:
       # Database
       - key: DATABASE_URL

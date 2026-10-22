@@ -24,7 +24,8 @@ def test_chat_api_returns_dax_reply(client, player, llm_prompts, stub_reply):
 
 def test_reply_is_cleaned_of_reasoning_markdown_and_cut_off_text(client, player, monkeypatch):
     raw = "<think>They want an engine.</think>Go with the **2004 V10**. It loves long straights. However, the"
-    monkeypatch.setattr(llm_adapter, "generate_with_groq", lambda *args, **kwargs: raw)
+    monkeypatch.setattr(llm_adapter, "generate_with_groq",
+                        lambda *args, **kwargs: {"text": raw, "finish_reason": "length"})
 
     r = chat(client, player, "Which engine?")
     assert r.json()["npc_reply"] == "Go with the 2004 V10. It loves long straights."

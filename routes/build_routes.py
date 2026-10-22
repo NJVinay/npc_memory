@@ -7,7 +7,7 @@ from database import get_db
 from auth import get_current_user
 from schemas import CarBuildResponse
 from services import PlayerService, BuildService
-from dependencies import limiter
+from dependencies import limiter, player_or_ip, require_consent
 
 router = APIRouter(tags=["Car Builds"])
 
@@ -16,8 +16,8 @@ def _part_or_none(part: str) -> Optional[str]:
     return part if part and part.strip().lower() not in ("null", "undefined") else None
 
 @router.post("/save_car_build")
-@limiter.limit(config.RATE_LIMITS["general"])
-async def save_car_build(
+@limiter.limit(config.RATE_LIMITS["general"], key_func=player_or_ip)
+def save_car_build(
     request: Request, # Fix for slowapi crash
     player_id: int = Form(...),
     chassis: str = Form(""),
@@ -34,6 +34,7 @@ async def save_car_build(
     player = PlayerService.get_player_by_id(db, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+    require_consent(db, player_id)
     
     try:
         build = BuildService.create_build(

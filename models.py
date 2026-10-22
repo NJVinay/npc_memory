@@ -18,7 +18,15 @@ class NPCMemory(Base):
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     npc_reply = Column(Text, nullable=True)
     npc_sentiment = Column(String(20), nullable=True)
-    
+    # typed, part_click (automatic message when a part is picked) or static_option (TurboTom choice)
+    source = Column(String(20), nullable=True)
+    # ok, off_topic (flagged, not changed), fallback (canned reply), llm_error or scripted; NULL on older rows
+    reply_status = Column(String(20), nullable=True)
+    raw_reply = Column(Text, nullable=True)  # LLM output before cleanup
+    llm_model = Column(String(100), nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    mentions_part = Column(Boolean, nullable=True)
+
     # Relationship
     player = relationship("Player", back_populates="memories")
     
@@ -41,11 +49,15 @@ class Player(Base):
     pin_hash = Column(Text, nullable=True)  # Bcrypt hash for email+password auth
     display_name = Column(String(255), nullable=True)  # User's real name
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    
+    # OAuth identity this account signs in with (google/github + the provider's stable user id)
+    oauth_provider = Column(String(20), nullable=True)
+    oauth_subject = Column(String(255), nullable=True)
+
     # Relationships
     memories = relationship("NPCMemory", back_populates="player", lazy="dynamic", cascade="all, delete-orphan")
     builds = relationship("CarBuild", back_populates="player", lazy="dynamic", cascade="all, delete-orphan")
     consent_records = relationship("Consent", back_populates="player", lazy="dynamic", cascade="all, delete-orphan")
+    assignment = relationship("StudyAssignment", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Player(id={self.id}, name='{self.name}', display_name='{self.display_name}')>"
@@ -70,6 +82,20 @@ class CarBuild(Base):
     
     def __repr__(self) -> str:
         return f"<CarBuild(id={self.id}, player_id={self.player_id}, chassis='{self.chassis}', engine='{self.engine}')>" 
+
+
+class StudyAssignment(Base):
+    """The study condition (dax or static) a player was assigned to. Set once, never re-drawn."""
+    __tablename__ = "study_assignments"
+
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), primary_key=True)
+    condition = Column(String(20), nullable=False, index=True)
+    # balanced (drawn for group balance) or prior_dax_history (had talked to Dax before assignments existed)
+    reason = Column(String(30), nullable=True)
+    assigned_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<StudyAssignment(player_id={self.player_id}, condition='{self.condition}')>"
 
 
 class Consent(Base):

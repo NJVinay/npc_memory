@@ -36,6 +36,8 @@ os.environ.update({
 import dependencies  # noqa: E402
 import llm_adapter  # noqa: E402
 import main  # noqa: E402
+from database import SessionLocal  # noqa: E402
+from models import StudyAssignment  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 # Per-IP limits (e.g. 3 registrations/minute) would trip across tests
@@ -62,7 +64,7 @@ def llm_prompts(monkeypatch):
 
     def fake_groq(prompt, max_tokens=150, temperature=0.4):
         prompts.append(prompt)
-        return STUB_REPLY
+        return {"text": STUB_REPLY, "finish_reason": "stop"}
 
     monkeypatch.setattr(llm_adapter, "generate_with_groq", fake_groq)
     return prompts
@@ -73,9 +75,22 @@ def client():
     return TestClient(main.app)
 
 
+CONSENT = {"name": "Test Driver", "consent_participate": True, "consent_data": True, "consent_age": True}
+
+
 @pytest.fixture
-def player(client):
-    """Register a fresh email/password player and log the client in as them."""
+def set_condition():
+    """Put a player in a study condition ("dax" or "static") directly in the database."""
+    def assign(player_id, condition):
+        with SessionLocal() as db:
+            db.merge(StudyAssignment(player_id=player_id, condition=condition))
+            db.commit()
+    return assign
+
+
+@pytest.fixture
+def logged_in_player(client):
+    """Register a fresh email/password player and log the client in as them (no consent yet)."""
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     password = "racecar123"
 
@@ -85,3 +100,12 @@ def player(client):
     assert r.status_code == 200, r.text
 
     return {"id": r.json()["player_id"], "email": email, "password": password}
+
+
+@pytest.fixture
+def player(client, logged_in_player, set_condition):
+    """A logged-in player who has given study consent and is in the Dax condition."""
+    r = client.post("/store_consent", json={**CONSENT, "player_id": logged_in_player["id"]})
+    assert r.status_code == 200, r.text
+    set_condition(logged_in_player["id"], "dax")
+    return logged_in_player

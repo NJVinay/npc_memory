@@ -1,10 +1,13 @@
 """
 LLM Adapter - Switches between local GGUF model and free cloud APIs
 Enables free tier deployment by using Groq/OpenAI/Hugging Face APIs
+
+Every generator returns {"text": ..., "finish_reason": ...} and raises LLMError when
+the provider fails or returns no text, so callers never mistake an error for a reply.
 """
 
-import os
-from typing import Dict, Union
+from functools import lru_cache
+from typing import Dict
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -13,69 +16,81 @@ load_dotenv()
 from config import config
 
 
-def generate_with_groq(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> str:
-    """Generate response using Groq API (FREE tier: 30 req/min)."""
+class LLMError(Exception):
+    """The LLM provider failed or returned no usable text."""
+
+
+@lru_cache(maxsize=1)
+def _groq_client():
+    """One client per process; a short timeout keeps a stuck request from holding the chat open."""
+    from groq import Groq
+    return Groq(api_key=config.LLM_API_KEY, timeout=20.0, max_retries=1)
+
+
+def generate_with_groq(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> Dict:
+    """Generate response using Groq API."""
+    if not config.LLM_API_KEY:
+        raise LLMError("LLM_API_KEY is not set")
+
+    extra_body = {}
+    if "qwen3" in config.LLM_MODEL.lower():
+        # Qwen3 reasons by default and the reasoning counts against max_tokens,
+        # which can leave nothing for the reply itself
+        extra_body["reasoning_effort"] = "none"
+
     try:
-        from groq import Groq
-        
-        if not config.LLM_API_KEY:
-            return "I'm Dax, your F1 mechanic. Get a free Groq API key at console.groq.com"
-        
-        client = Groq(api_key=config.LLM_API_KEY)
-        
-        response = client.chat.completions.create(
+        response = _groq_client().chat.completions.create(
             model=config.LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
+            extra_body=extra_body or None,
         )
-        
-        return response.choices[0].message.content.strip()
-    
-    except ImportError:
-        raise ImportError("groq not installed. Run: pip install groq")
     except Exception as e:
-        print(f"❌ Groq API error: {e}")
-        return "I'm having trouble connecting to my systems right now. Please try again."
+        raise LLMError(f"Groq API error: {e}") from e
+
+    choice = response.choices[0]
+    text = (choice.message.content or "").strip()
+    if not text:
+        raise LLMError(f"Groq returned no text (finish_reason={choice.finish_reason})")
+    return {"text": text, "finish_reason": choice.finish_reason}
 
 
-def generate_with_openai(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> str:
-    """Generate response using OpenAI API ($5 free credits for new users)."""
+def generate_with_openai(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> Dict:
+    """Generate response using OpenAI API."""
+    if not config.LLM_API_KEY:
+        raise LLMError("LLM_API_KEY is not set")
+
     try:
         from openai import OpenAI
-        
-        if not config.LLM_API_KEY:
-            return "I'm Dax, your F1 mechanic. Get OpenAI API key at platform.openai.com"
-        
-        client = OpenAI(api_key=config.LLM_API_KEY)
-        
+        client = OpenAI(api_key=config.LLM_API_KEY, timeout=20.0, max_retries=1)
         response = client.chat.completions.create(
             model=config.LLM_MODEL or "gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        
-        return response.choices[0].message.content.strip()
-    
-    except ImportError:
-        raise ImportError("openai not installed. Run: pip install openai")
     except Exception as e:
-        print(f"❌ OpenAI API error: {e}")
-        return "I'm having trouble connecting to my systems right now. Please try again."
+        raise LLMError(f"OpenAI API error: {e}") from e
+
+    choice = response.choices[0]
+    text = (choice.message.content or "").strip()
+    if not text:
+        raise LLMError(f"OpenAI returned no text (finish_reason={choice.finish_reason})")
+    return {"text": text, "finish_reason": choice.finish_reason}
 
 
-def generate_with_huggingface(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> str:
+def generate_with_huggingface(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> Dict:
     """Generate response using Hugging Face Inference API (free tier available)."""
+    if not config.LLM_API_KEY:
+        raise LLMError("LLM_API_KEY is not set")
+
     try:
         import requests
-        
-        if not config.LLM_API_KEY:
-            return "I'm Dax, your F1 mechanic. Get HF token at huggingface.co/settings/tokens"
-        
+
         api_url = f"https://api-inference.huggingface.co/models/{config.LLM_MODEL or 'mistralai/Mistral-7B-Instruct-v0.1'}"
         headers = {"Authorization": f"Bearer {config.LLM_API_KEY}"}
-        
+
         payload = {
             "inputs": prompt,
             "parameters": {
@@ -84,46 +99,48 @@ def generate_with_huggingface(prompt: str, max_tokens: int = 150, temperature: f
                 "return_full_text": False
             }
         }
-        
+
         response = requests.post(api_url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
-        
         result = response.json()
-        if isinstance(result, list) and len(result) > 0:
-            return result[0].get("generated_text", "").strip()
-        
-        return "I'm having trouble generating a response right now."
-    
     except Exception as e:
-        print(f"❌ Hugging Face API error: {e}")
-        return "I'm having trouble connecting to my systems right now. Please try again."
+        raise LLMError(f"Hugging Face API error: {e}") from e
+
+    text = ""
+    if isinstance(result, list) and len(result) > 0:
+        text = (result[0].get("generated_text") or "").strip()
+    if not text:
+        raise LLMError("Hugging Face returned no text")
+    # The Inference API doesn't say why generation stopped
+    return {"text": text, "finish_reason": None}
 
 
 def generate_llm_response(prompt: str, max_tokens: int = 150, temperature: float = 0.4) -> Dict:
     """
     Universal LLM response generator for cloud providers.
-    
+
     Returns:
-        Dict with 'response' key containing generated text
+        Dict with 'response' (generated text) and 'finish_reason' ('length' when
+        the reply was cut off by max_tokens). Raises LLMError on failure.
     """
-    if config.USE_EXTERNAL_LLM:
-        print(f"🌐 Using {config.LLM_PROVIDER.upper()} API")
-        
-        # Route to provider
-        provider = config.LLM_PROVIDER.lower()
-        if provider == "groq":
-            text = generate_with_groq(prompt, max_tokens, temperature)
-        elif provider == "openai":
-            text = generate_with_openai(prompt, max_tokens, temperature)
-        elif provider in ["huggingface", "hf"]:
-            text = generate_with_huggingface(prompt, max_tokens, temperature)
-        else:
-            print(f"⚠️ Unknown provider: {config.LLM_PROVIDER}, using Groq")
-            text = generate_with_groq(prompt, max_tokens, temperature)
-        
-        return {"response": text}
-    
-    return {"response": "External LLM is disabled in config."}
+    if not config.USE_EXTERNAL_LLM:
+        raise LLMError("External LLM is disabled in config")
+
+    print(f"🌐 Using {config.LLM_PROVIDER.upper()} API")
+
+    # Route to provider
+    provider = config.LLM_PROVIDER.lower()
+    if provider == "groq":
+        result = generate_with_groq(prompt, max_tokens, temperature)
+    elif provider == "openai":
+        result = generate_with_openai(prompt, max_tokens, temperature)
+    elif provider in ["huggingface", "hf"]:
+        result = generate_with_huggingface(prompt, max_tokens, temperature)
+    else:
+        print(f"⚠️ Unknown provider: {config.LLM_PROVIDER}, using Groq")
+        result = generate_with_groq(prompt, max_tokens, temperature)
+
+    return {"response": result["text"], "finish_reason": result.get("finish_reason")}
 
 
 if __name__ == "__main__":
