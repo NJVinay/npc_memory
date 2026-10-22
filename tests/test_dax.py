@@ -8,7 +8,7 @@ import llm_adapter
 from config import config
 from database import SessionLocal
 from llm_adapter import LLMError, generate_with_groq as real_generate_with_groq
-from models import NPCMemory
+from models import CarBuild, NPCMemory
 
 
 def chat(client, player, text, **extra):
@@ -149,6 +149,17 @@ def test_older_turns_without_a_status_still_count_as_memory(client, player, llm_
     chat(client, player, "What is my number?")
 
     assert "My car number is 44" in history_section(llm_prompts[0])
+
+
+def test_older_builds_with_null_strings_count_those_parts_as_missing(client, player, llm_prompts):
+    with SessionLocal() as db:  # saved by the TurboTom page before unselected parts were sent as ""
+        db.add(CarBuild(player_id=player["id"], chassis="Standard_Monocoque_Chassis", engine="null", tires="undefined"))
+        db.commit()
+
+    chat(client, player, "What's next?")
+
+    assert "PARTIAL BUILD (1/5)" in llm_prompts[0]
+    assert "NEXT ACTION: Next, select your engine" in llm_prompts[0]
 
 
 def test_part_click_messages_are_marked_as_automatic(client, player):

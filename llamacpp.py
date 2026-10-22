@@ -63,16 +63,20 @@ OFF_TOPIC_PATTERN = re.compile(r"\b(" + "|".join(OFF_TOPIC_BRANDS) + r")\b", re.
 # End of a complete sentence: . ! or ? (optionally closing a quote) before whitespace or the end
 SENTENCE_END_PATTERN = re.compile(r"[.!?][\"')\]]?(?=\s|$)")
 
+def has_part(part: Optional[str]) -> bool:
+    """True if a build slot holds a part. Older builds stored unselected parts as "null"/"undefined"."""
+    return bool(part) and part.strip().lower() not in ("null", "undefined")
+
 def get_short_part_name(part: Optional[str]) -> str:
     """Return a concise, user-friendly part name.
-    
+
     Args:
         part: The full part name or identifier
-        
+
     Returns:
         Short, user-friendly name or the original if no match found
     """
-    if not part:
+    if not has_part(part):
         return "-"
     
     part_lower = str(part).lower().strip()
@@ -290,7 +294,7 @@ def generate_npc_response(
             f"- Front Wing: {get_short_part_name(build.front_wing)}\n"
             f"- Rear Wing: {get_short_part_name(build.rear_wing)}\n\n"
         )
-        if all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
+        if all(has_part(p) for p in (build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing)):
             mood_instruction += " The car build is complete. Praise the player or give final strategy tips."
             
     is_first_message = not context_entries
@@ -374,15 +378,15 @@ def generate_npc_response(
     if not reply_text or len(reply_text.strip()) < 10:
         status = "fallback"
         # Generate context-appropriate fallback based on build status
-        if build and all([build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing]):
+        if build and all(has_part(p) for p in (build.chassis, build.engine, build.tires, build.front_wing, build.rear_wing)):
             reply_text = f"Perfect build, {player_name}! Your car is race-ready. Focus on your racing line and you'll do great!"
         elif build:
             missing_parts = []
-            if not build.chassis or build.chassis == "": missing_parts.append("chassis")
-            if not build.engine or build.engine == "": missing_parts.append("engine") 
-            if not build.tires or build.tires == "": missing_parts.append("tires")
-            if not build.front_wing or build.front_wing == "": missing_parts.append("front wing")
-            if not build.rear_wing or build.rear_wing == "": missing_parts.append("rear wing")
+            if not has_part(build.chassis): missing_parts.append("chassis")
+            if not has_part(build.engine): missing_parts.append("engine") 
+            if not has_part(build.tires): missing_parts.append("tires")
+            if not has_part(build.front_wing): missing_parts.append("front wing")
+            if not has_part(build.rear_wing): missing_parts.append("rear wing")
 
             if missing_parts:
                 next_part = missing_parts[0]

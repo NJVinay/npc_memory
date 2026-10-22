@@ -8,12 +8,13 @@ from auth import get_current_user
 from schemas import CarBuildResponse
 from services import PlayerService, BuildService
 from dependencies import limiter, player_or_ip, require_consent
+from llamacpp import has_part
 
 router = APIRouter(tags=["Car Builds"])
 
 def _part_or_none(part: str) -> Optional[str]:
     """An unselected part arrives as "" (or "null"/"undefined" from older pages); store it as None."""
-    return part if part and part.strip().lower() not in ("null", "undefined") else None
+    return part if has_part(part) else None
 
 @router.post("/save_car_build")
 @limiter.limit(config.RATE_LIMITS["general"], key_func=player_or_ip)
